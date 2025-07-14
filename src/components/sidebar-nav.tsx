@@ -85,33 +85,32 @@ export function SidebarNav() {
               <ul className="space-y-1">
                 {item.subItems.map((subItem) => (
                   <li key={subItem.href}>
-                    <Link href={subItem.href} passHref>
-                      <a
-                        className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                          (pathname.startsWith(subItem.href))
-                           ? "bg-muted text-foreground" : ""
-                        )}
-                      >
-                        <subItem.icon className="h-4 w-4" />
-                        {subItem.label}
-                      </a>
+                    <Link
+                      href={subItem.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        (pathname.startsWith(subItem.href))
+                         ? "bg-muted text-foreground" : ""
+                      )}
+                    >
+                      <subItem.icon className="h-4 w-4" />
+                      {subItem.label}
                     </Link>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            <Link key={item.href} href={item.href!}>
-              <span
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                  pathname === item.href && "bg-muted text-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </span>
+            <Link
+              key={item.href}
+              href={item.href!}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                pathname === item.href && "bg-muted text-foreground"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
             </Link>
           )
         ))}
