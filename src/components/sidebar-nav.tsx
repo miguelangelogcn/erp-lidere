@@ -74,12 +74,10 @@ export function SidebarNav() {
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                          <SidebarMenuSubItem key={subItem.href}>
-                           <Link href={subItem.href} passHref>
-                              <SidebarMenuSubButton asChild isActive={pathname === subItem.href}>
-                                <a>
-                                    <subItem.icon className="h-4 w-4" />
-                                    <span>{subItem.label}</span>
-                                </a>
+                           <Link href={subItem.href} passHref legacyBehavior>
+                              <SidebarMenuSubButton as="a" isActive={pathname === subItem.href}>
+                                <subItem.icon className="h-4 w-4" />
+                                <span>{subItem.label}</span>
                               </SidebarMenuSubButton>
                            </Link>
                          </SidebarMenuSubItem>
@@ -90,8 +88,9 @@ export function SidebarNav() {
               </Collapsible.Root>
             ) : (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href!} asChild>
+              <Link href={item.href!} passHref legacyBehavior>
                 <SidebarMenuButton
+                  as="a"
                   isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href!)}
                   tooltip={item.label}
                   className="justify-start"
