@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, Edit, Trash, MoreHorizontal, Loader2 } from "lucide-react";
 
-import { Role, addRole, updateRole, deleteRole, systemPages } from "@/lib/firebase/firestore";
+import { Role, addRole, updateRole, deleteRole, systemPages, getRoles } from "@/lib/firebase/firestore";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -61,6 +62,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const formSchema = z.object({
   name: z.string().min(1, "O nome do cargo é obrigatório."),
@@ -69,18 +71,40 @@ const formSchema = z.object({
 
 type RoleFormValues = z.infer<typeof formSchema>;
 
-interface RolesClientProps {
-  initialData: Role[];
-}
-
-export function RolesClient({ initialData }: RolesClientProps) {
-  const [roles, setRoles] = useState(initialData);
+export function RolesClient() {
+  const [roles, setRoles] = useState<Role[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const refreshData = async () => {
+    setPageLoading(true);
+    try {
+        const rolesData = await getRoles();
+        setRoles(rolesData);
+    } catch (error) {
+        console.error("Firebase permission error:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro de Permissão",
+            description: "Você não tem permissão para ver estes dados.",
+        });
+    } finally {
+        setPageLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (user) {
+        refreshData();
+    }
+  }, [user]);
+
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(formSchema),
@@ -124,7 +148,7 @@ export function RolesClient({ initialData }: RolesClientProps) {
         await addRole(values);
         toast({ title: "Sucesso", description: "Cargo criado." });
       }
-      router.refresh();
+      await refreshData();
       setIsFormOpen(false);
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: "Ocorreu um erro." });
@@ -139,7 +163,7 @@ export function RolesClient({ initialData }: RolesClientProps) {
     try {
         await deleteRole(selectedRole.id);
         toast({ title: "Sucesso", description: "Cargo excluído." });
-        router.refresh();
+        await refreshData();
         setIsDeleteAlertOpen(false);
     } catch (error) {
         toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir o cargo." });
@@ -243,6 +267,13 @@ export function RolesClient({ initialData }: RolesClientProps) {
           <CardTitle>Lista de Cargos</CardTitle>
         </CardHeader>
         <CardContent>
+          {pageLoading ? (
+             <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -278,6 +309,7 @@ export function RolesClient({ initialData }: RolesClientProps) {
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
     </>
