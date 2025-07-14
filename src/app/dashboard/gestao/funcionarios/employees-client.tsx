@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, Edit, Trash, MoreHorizontal, Loader2 } from "lucide-react";
 
-import { Employee, Role, addEmployee, updateEmployee, deleteEmployee } from "@/lib/firebase/firestore";
+import { Employee, Role, addEmployee, updateEmployee, deleteEmployee, getEmployees, getRoles } from "@/lib/firebase/firestore";
+import { auth } from "@/lib/firebase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,7 +32,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose
 } from "@/components/ui/dialog";
 import {
@@ -66,6 +67,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 const formSchema = z.object({
@@ -76,19 +78,45 @@ const formSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof formSchema>;
 
-interface EmployeesClientProps {
-  initialEmployees: Employee[];
-  roles: Role[];
-}
-
-export function EmployeesClient({ initialEmployees, roles }: EmployeesClientProps) {
-  const [employees, setEmployees] = useState(initialEmployees);
+export function EmployeesClient() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    async function fetchData() {
+      if (user) {
+        setPageLoading(true);
+        try {
+          // A linha de log que você solicitou:
+          console.log("Status do usuário antes de buscar dados:", auth.currentUser);
+
+          const employeesData = await getEmployees();
+          const rolesData = await getRoles();
+          setEmployees(employeesData);
+          setRoles(rolesData);
+        } catch (error) {
+          console.error("Firebase permission error:", error);
+          toast({
+            variant: "destructive",
+            title: "Erro de Permissão",
+            description: "Você não tem permissão para ver estes dados. Verifique as regras do Firestore.",
+          });
+        } finally {
+          setPageLoading(false);
+        }
+      }
+    }
+    fetchData();
+  }, [user, toast]);
+
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(formSchema),
@@ -122,6 +150,11 @@ export function EmployeesClient({ initialEmployees, roles }: EmployeesClientProp
     setIsDeleteAlertOpen(true);
   }
 
+  const refreshData = async () => {
+    const employeesData = await getEmployees();
+    setEmployees(employeesData);
+  }
+
   const onSubmit = async (values: EmployeeFormValues) => {
     setLoading(true);
     try {
@@ -132,7 +165,7 @@ export function EmployeesClient({ initialEmployees, roles }: EmployeesClientProp
         await addEmployee(values);
         toast({ title: "Sucesso", description: "Funcionário adicionado." });
       }
-      router.refresh();
+      await refreshData();
       setIsFormOpen(false);
     } catch (error) {
       console.error(error);
@@ -148,7 +181,7 @@ export function EmployeesClient({ initialEmployees, roles }: EmployeesClientProp
     try {
         await deleteEmployee(selectedEmployee.id);
         toast({ title: "Sucesso", description: "Funcionário excluído." });
-        router.refresh();
+        await refreshData();
         setIsDeleteAlertOpen(false);
     } catch (error) {
         toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir o funcionário." });
@@ -208,7 +241,7 @@ export function EmployeesClient({ initialEmployees, roles }: EmployeesClientProp
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cargo</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione um cargo" />
@@ -262,45 +295,53 @@ export function EmployeesClient({ initialEmployees, roles }: EmployeesClientProp
           <CardTitle>Lista de Funcionários</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead className="w-[100px] text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {initialEmployees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-medium">{employee.name}</TableCell>
-                  <TableCell>{employee.email}</TableCell>
-                  <TableCell>{employee.role}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Abrir menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDialogOpen(employee)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDeleteAlertOpen(employee)} className="text-destructive focus:text-destructive">
-                          <Trash className="mr-2 h-4 w-4" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+           {pageLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+           ) : (
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead className="w-[100px] text-right">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {employees.map((employee) => (
+                    <TableRow key={employee.id}>
+                    <TableCell className="font-medium">{employee.name}</TableCell>
+                    <TableCell>{employee.email}</TableCell>
+                    <TableCell>{employee.role}</TableCell>
+                    <TableCell className="text-right">
+                        <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleDialogOpen(employee)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteAlertOpen(employee)} className="text-destructive focus:text-destructive">
+                            <Trash className="mr-2 h-4 w-4" />
+                            Excluir
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+           )}
         </CardContent>
       </Card>
     </>
