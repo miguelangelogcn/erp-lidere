@@ -557,9 +557,6 @@ const SidebarMenuButton = React.forwardRef<
     const Comp = asChild ? Slot : "button"
     const { isMobile, state } = useSidebar()
     
-    // Remove asChild from props to avoid passing it to the DOM element
-    const { asChild: _, ...rest } = props;
-
     const button = (
       <Comp
         ref={ref}
@@ -567,7 +564,7 @@ const SidebarMenuButton = React.forwardRef<
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-        {...rest}
+        {...props}
       />
     )
 
