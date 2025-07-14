@@ -1,11 +1,12 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 import {
   LayoutDashboard,
   FileText,
-  Cog,
   Banknote,
   ShoppingCart,
   Zap,
@@ -17,16 +18,19 @@ import {
   Package,
   ClipboardCheck,
   PlaySquare,
+  GraduationCap,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const employeeNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { 
     id: "gestao",
     label: "Gestão", 
     subItems: [
       { href: "/dashboard/gestao/funcionarios", label: "Funcionários", icon: Users },
+      { href: "/dashboard/gestao/alunos", label: "Alunos", icon: User },
       { href: "/dashboard/gestao/cargos", label: "Cargos", icon: Building2 },
     ]
   },
@@ -34,7 +38,7 @@ const navItems = [
     id: "conteudo",
     label: "Conteúdo", 
     subItems: [
-      { href: "/dashboard/conteudo", label: "Visão Geral", icon: FileText },
+      { href: "/dashboard/conteudo/formacoes", label: "Formações", icon: GraduationCap },
     ]
   },
   { 
@@ -64,8 +68,16 @@ const navItems = [
   },
 ];
 
+const studentNavItems = [
+    { href: "/dashboard/formacoes", label: "Formações", icon: GraduationCap },
+    { href: "/dashboard/acompanhamento", label: "Acompanhamento", icon: ClipboardCheck },
+];
+
 export function SidebarNav() {
   const pathname = usePathname();
+  const { userRole } = useAuth();
+  
+  const navItems = userRole === 'student' ? studentNavItems : employeeNavItems;
 
   return (
     <div className="flex h-full flex-col">
@@ -77,11 +89,9 @@ export function SidebarNav() {
       </div>
       <nav className="flex-1 space-y-1 p-2">
         {navItems.map((item) => (
-          item.subItems ? (
-            <div key={item.id || item.href} className="space-y-1">
-              {item.label !== 'Dashboard' && (
-                <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{item.label}</h4>
-              )}
+          'subItems' in item ? (
+            <div key={item.id} className="space-y-1">
+              <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{item.label}</h4>
               <ul className="space-y-1">
                 {item.subItems.map((subItem) => (
                   <li key={subItem.href}>
@@ -89,7 +99,7 @@ export function SidebarNav() {
                       href={subItem.href}
                       className={cn(
                         "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                        (pathname.startsWith(subItem.href))
+                        (pathname === subItem.href || pathname.startsWith(subItem.href + '/'))
                          ? "bg-muted text-foreground" : ""
                       )}
                     >
@@ -103,7 +113,7 @@ export function SidebarNav() {
           ) : (
             <Link
               key={item.href}
-              href={item.href!}
+              href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
                 pathname === item.href && "bg-muted text-foreground"
@@ -118,3 +128,5 @@ export function SidebarNav() {
     </div>
   );
 }
+
+    

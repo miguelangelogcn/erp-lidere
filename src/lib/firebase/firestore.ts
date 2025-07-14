@@ -1,9 +1,11 @@
-import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch } from "firebase/firestore";
+
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc } from "firebase/firestore";
 import { app } from "./client";
 
 const db = getFirestore(app);
 
-// General Types
+// --- TYPE DEFINITIONS ---
+
 export interface Contact {
     id: string;
     name: string;
@@ -18,7 +20,6 @@ export interface Company {
     phone?: string;
 }
 
-// User Management Types
 export interface Role {
   id: string;
   name: string;
@@ -33,9 +34,9 @@ export interface Employee {
   email: string;
   roleId: string;
   role?: string; // Populated after fetching
+  assignedCourses?: string[];
 }
 
-// Sales Module Types
 export interface Pipeline {
     id: string;
     name: string;
@@ -61,7 +62,6 @@ export interface Note {
     createdAt: any;
 }
 
-// Operations Module Types
 export interface OnboardingPlan {
     [day: string]: string[]; // e.g., { D0: ["Task 1", "Task 2"], D1: [...] }
 }
@@ -86,7 +86,7 @@ export interface Onboarding {
     productName: string;
     status: "A Fazer" | "Fazendo" | "Feito";
     dailyTasks: {
-        [day: string]: OnboardingDailyTask[]; // e.g., { D0: [{text: "T1", completed: false}], D1: [...] }
+        [day: string]: OnboardingDailyTask[];
     };
     createdAt: any;
 }
@@ -113,8 +113,37 @@ export interface ActionPlanTask {
     text: string;
     status: 'pending' | 'completed' | 'validated';
     submittedFileUrl?: string;
+    submittedText?: string;
     createdAt: any;
 }
+
+// Content Module Types
+export interface Course {
+    id: string;
+    title: string;
+    description: string;
+}
+
+export interface Module {
+    id: string;
+    title: string;
+    order: number;
+}
+
+export interface Lesson {
+    id: string;
+    title: string;
+    order: number;
+    videoUrl?: string; // YouTube or Storage URL
+    content: string; // Rich text / Markdown
+    attachments: { name: string; url: string }[];
+}
+
+// User Progress Type
+export interface UserProgress {
+    [lessonId: string]: boolean; // { lessonId: true }
+}
+
 
 // --- SERVICE FUNCTIONS ---
 
@@ -142,9 +171,23 @@ export const getEmployees = async (): Promise<Employee[]> => {
         role: emp.roleId ? rolesMap.get(emp.roleId) || 'N/A' : 'N/A'
     }));
 };
-// Note: addEmployee is a server-side action due to auth creation.
-export const updateEmployee = (id: string, employee: Partial<{name: string, roleId: string}>) => updateDoc(doc(db, "users", id), employee);
-export const deleteEmployee = (id: string) => deleteDoc(doc(db, "users", id)); // Consider soft-delete for production
+
+export const getStudents = async (): Promise<Employee[]> => {
+    const roles = await getRoles();
+    const studentRole = roles.find(r => r.name.toLowerCase() === 'student');
+    if (!studentRole) return [];
+
+    const usersCol = collection(db, "users");
+    const q = query(usersCol, where("roleId", "==", studentRole.id));
+    const snapshot = await getDocs(q);
+    const students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
+
+    return students.map(student => ({...student, role: studentRole.name}));
+}
+
+
+export const updateEmployee = (id: string, employee: Partial<Employee>) => updateDoc(doc(db, "users", id), employee);
+export const deleteEmployee = (id: string) => deleteDoc(doc(db, "users", id));
 
 // Contacts CRUD
 export const getContacts = async (): Promise<Contact[]> => {
@@ -176,11 +219,9 @@ export const addPipeline = (pipeline: Omit<Pipeline, "id">) => addDoc(collection
 export const updatePipeline = (id: string, pipeline: Partial<Pipeline>) => updateDoc(doc(db, "pipelines", id), pipeline);
 export const deletePipeline = async (id: string) => {
     const batch = writeBatch(db);
-    // Delete deals in pipeline
     const dealsQuery = query(collection(db, "deals"), where("pipelineId", "==", id));
     const dealsSnapshot = await getDocs(dealsQuery);
     dealsSnapshot.forEach(dealDoc => batch.delete(dealDoc.ref));
-    // Delete pipeline itself
     batch.delete(doc(db, "pipelines", id));
     await batch.commit();
 };
@@ -267,9 +308,12 @@ export const addFollowUp = async (onboarding: Onboarding) => {
     };
     return addDoc(collection(db, "followUps"), newFollowUp);
 };
-export const getFollowUps = async (): Promise<FollowUp[]> => {
-    const followUpsCol = collection(db, "followUps");
-    const snapshot = await getDocs(query(followUpsCol, orderBy("createdAt", "desc")));
+export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
+    let q = query(collection(db, "followUps"), orderBy("createdAt", "desc"));
+    if (userId) {
+        q = query(q, where("contactId", "==", userId));
+    }
+    const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FollowUp));
 };
 
@@ -305,6 +349,59 @@ export const updateActionPlanTask = (followUpId: string, taskId: string, data: P
     return updateDoc(doc(db, "followUps", followUpId, "actionPlanTasks", taskId), data);
 };
 
+// Content Module CRUD
+// Courses
+export const getCourses = async (): Promise<Course[]> => {
+    const coursesCol = collection(db, "courses");
+    const snapshot = await getDocs(query(coursesCol, orderBy("title")));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
+};
+export const getCourse = async (id: string): Promise<Course | null> => {
+    const courseDoc = await getDoc(doc(db, "courses", id));
+    return courseDoc.exists() ? { id: courseDoc.id, ...courseDoc.data() } as Course : null;
+};
+export const addCourse = (data: Omit<Course, "id">) => addDoc(collection(db, "courses"), data);
+export const updateCourse = (id: string, data: Partial<Course>) => updateDoc(doc(db, "courses", id), data);
+export const deleteCourse = (id: string) => deleteDoc(doc(db, "courses", id));
+export const getAssignedCourses = async (courseIds: string[]): Promise<Course[]> => {
+    if (!courseIds || courseIds.length === 0) return [];
+    const coursesCol = collection(db, "courses");
+    const q = query(coursesCol, where(documentId(), "in", courseIds));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Course));
+};
+
+// Modules
+export const getModules = async (courseId: string): Promise<Module[]> => {
+    const modulesCol = collection(db, `courses/${courseId}/modules`);
+    const snapshot = await getDocs(query(modulesCol, orderBy("order")));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Module));
+};
+export const addModule = (courseId: string, data: Omit<Module, "id">) => addDoc(collection(db, `courses/${courseId}/modules`), data);
+export const updateModule = (courseId: string, moduleId: string, data: Partial<Module>) => updateDoc(doc(db, `courses/${courseId}/modules`, moduleId), data);
+export const deleteModule = (courseId: string, moduleId: string) => deleteDoc(doc(db, `courses/${courseId}/modules`, moduleId));
+
+// Lessons
+export const getLessons = async (courseId: string, moduleId: string): Promise<Lesson[]> => {
+    const lessonsCol = collection(db, `courses/${courseId}/modules/${moduleId}/lessons`);
+    const snapshot = await getDocs(query(lessonsCol, orderBy("order")));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
+};
+export const addLesson = (courseId: string, moduleId: string, data: Omit<Lesson, "id">) => addDoc(collection(db, `courses/${courseId}/modules/${moduleId}/lessons`), data);
+export const updateLesson = (courseId: string, moduleId: string, lessonId: string, data: Partial<Lesson>) => updateDoc(doc(db, `courses/${courseId}/modules/${moduleId}/lessons`, lessonId), data);
+export const deleteLesson = (courseId: string, moduleId: string, lessonId: string) => deleteDoc(doc(db, `courses/${courseId}/modules/${moduleId}/lessons`, lessonId));
+
+// User Progress
+export const getUserProgress = async (userId: string): Promise<UserProgress> => {
+    const progressDoc = await getDoc(doc(db, `userProgress/${userId}`));
+    return progressDoc.exists() ? progressDoc.data() : {};
+};
+export const updateUserProgress = (userId: string, lessonId: string, completed: boolean) => {
+    const progressRef = doc(db, `userProgress/${userId}`);
+    return updateDoc(progressRef, { [lessonId]: completed }, { merge: true });
+};
+
+
 // System Pages for Permissions
 export const systemPages = [
     { id: "dashboard", label: "Dashboard" },
@@ -316,3 +413,5 @@ export const systemPages = [
     { id: "financeiro", label: "Financeiro" },
     { id: "vendas", label: "Vendas" },
 ];
+
+    
