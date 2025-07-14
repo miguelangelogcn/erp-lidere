@@ -20,16 +20,39 @@ const navItems = [
   { 
     id: "gestao",
     label: "Gestão", 
-    icon: Briefcase,
     subItems: [
       { href: "/dashboard/gestao/funcionarios", label: "Funcionários", icon: Users },
       { href: "/dashboard/gestao/cargos", label: "Cargos", icon: Building2 },
     ]
   },
-  { href: "/dashboard/conteudo", label: "Conteúdo", icon: FileText },
-  { href: "/dashboard/operacoes", label: "Operações", icon: Cog },
-  { href: "/dashboard/financeiro", label: "Financeiro", icon: Banknote },
-  { href: "/dashboard/vendas", label: "Vendas", icon: ShoppingCart },
+  { 
+    id: "conteudo",
+    label: "Conteúdo", 
+    subItems: [
+      { href: "/dashboard/conteudo", label: "Visão Geral", icon: FileText },
+    ]
+  },
+  { 
+    id: "operacoes",
+    label: "Operações", 
+    subItems: [
+       { href: "/dashboard/operacoes", label: "Visão Geral", icon: Cog },
+    ]
+  },
+  { 
+    id: "financeiro",
+    label: "Financeiro", 
+    subItems: [
+       { href: "/dashboard/financeiro", label: "Visão Geral", icon: Banknote },
+    ]
+  },
+  { 
+    id: "vendas",
+    label: "Vendas", 
+    subItems: [
+       { href: "/dashboard/vendas", label: "Visão Geral", icon: ShoppingCart },
+    ]
+  },
 ];
 
 export function SidebarNav() {
@@ -46,8 +69,10 @@ export function SidebarNav() {
       <nav className="flex-1 space-y-1 p-2">
         {navItems.map((item) => (
           item.subItems ? (
-            <div key={item.id} className="space-y-1">
-              <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{item.label}</h4>
+            <div key={item.id || item.href} className="space-y-1">
+              {item.label !== 'Dashboards' && (
+                <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{item.label}</h4>
+              )}
               <ul className="space-y-1">
                 {item.subItems.map((subItem) => (
                   <li key={subItem.href}>
@@ -55,7 +80,12 @@ export function SidebarNav() {
                       <span
                         className={cn(
                           "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                          pathname === subItem.href && "bg-muted text-foreground"
+                          (subItem.href === '/dashboard/conteudo' && pathname === subItem.href) ||
+                          (subItem.href === '/dashboard/operacoes' && pathname === subItem.href) ||
+                          (subItem.href === '/dashboard/financeiro' && pathname === subItem.href) ||
+                          (subItem.href === '/dashboard/vendas' && pathname === subItem.href) ||
+                          (subItem.href !== '/dashboard' && pathname.startsWith(subItem.href))
+                           ? "bg-muted text-foreground" : ""
                         )}
                       >
                         <subItem.icon className="h-4 w-4" />
