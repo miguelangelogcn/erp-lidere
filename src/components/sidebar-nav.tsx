@@ -11,7 +11,6 @@ import {
   SidebarMenuButton,
   SidebarMenuSub,
   SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
@@ -74,8 +73,8 @@ export function SidebarNav() {
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                          <SidebarMenuSubItem key={subItem.href}>
-                           <Link href={subItem.href} passHref legacyBehavior>
-                              <SidebarMenuSubButton as="a" isActive={pathname === subItem.href}>
+                           <Link href={subItem.href} asChild>
+                              <SidebarMenuSubButton isActive={pathname === subItem.href}>
                                 <subItem.icon className="h-4 w-4" />
                                 <span>{subItem.label}</span>
                               </SidebarMenuSubButton>
@@ -88,9 +87,8 @@ export function SidebarNav() {
               </Collapsible.Root>
             ) : (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href!} passHref legacyBehavior>
+              <Link href={item.href!} asChild>
                 <SidebarMenuButton
-                  as="a"
                   isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href!)}
                   tooltip={item.label}
                   className="justify-start"
