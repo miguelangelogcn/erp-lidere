@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -73,7 +74,7 @@ export function SidebarNav() {
                     <SidebarMenuSub>
                       {item.subItems.map((subItem) => (
                          <SidebarMenuSubItem key={subItem.href}>
-                           <Link href={subItem.href}>
+                           <Link href={subItem.href} asChild>
                               <SidebarMenuSubButton isActive={pathname === subItem.href}>
                                 <subItem.icon className="h-4 w-4" />
                                 <span>{subItem.label}</span>
@@ -87,7 +88,7 @@ export function SidebarNav() {
               </Collapsible.Root>
             ) : (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href!}>
+              <Link href={item.href!} asChild>
                 <SidebarMenuButton
                   isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href!)}
                   tooltip={item.label}
