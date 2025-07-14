@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Briefcase,
   FileText,
   Cog,
   Banknote,
@@ -12,11 +11,14 @@ import {
   Zap,
   Users,
   Building2,
+  Contact,
+  Building,
+  KanbanSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboards", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { 
     id: "gestao",
     label: "Gestão", 
@@ -50,7 +52,9 @@ const navItems = [
     id: "vendas",
     label: "Vendas", 
     subItems: [
-       { href: "/dashboard/vendas", label: "Visão Geral", icon: ShoppingCart },
+      { href: "/dashboard/vendas/contatos", label: "Contatos", icon: Contact },
+      { href: "/dashboard/vendas/empresas", label: "Empresas", icon: Building },
+      { href: "/dashboard/vendas/pipelines", label: "Pipelines", icon: KanbanSquare },
     ]
   },
 ];
@@ -70,7 +74,7 @@ export function SidebarNav() {
         {navItems.map((item) => (
           item.subItems ? (
             <div key={item.id || item.href} className="space-y-1">
-              {item.label !== 'Dashboards' && (
+              {item.label !== 'Dashboard' && (
                 <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{item.label}</h4>
               )}
               <ul className="space-y-1">
@@ -80,11 +84,7 @@ export function SidebarNav() {
                       <span
                         className={cn(
                           "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                          (subItem.href === '/dashboard/conteudo' && pathname === subItem.href) ||
-                          (subItem.href === '/dashboard/operacoes' && pathname === subItem.href) ||
-                          (subItem.href === '/dashboard/financeiro' && pathname === subItem.href) ||
-                          (subItem.href === '/dashboard/vendas' && pathname === subItem.href) ||
-                          (subItem.href !== '/dashboard' && pathname.startsWith(subItem.href))
+                          (pathname.startsWith(subItem.href))
                            ? "bg-muted text-foreground" : ""
                         )}
                       >

@@ -1,0 +1,232 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Trash } from "lucide-react";
+import {
+  Deal,
+  Pipeline,
+  Contact,
+  Employee,
+  Note,
+  addDeal,
+  updateDeal,
+  deleteDeal,
+  addNote,
+  getNotes
+} from "@/lib/firebase/firestore";
+import { useAuth } from "@/hooks/use-auth";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { formatCurrency } from "@/lib/utils";
+
+const dealFormSchema = z.object({
+  title: z.string().min(1, "O título é obrigatório."),
+  value: z.coerce.number().min(0, "O valor deve ser positivo."),
+  pipelineId: z.string().min(1, "O pipeline é obrigatório."),
+  stage: z.string().min(1, "O estágio é obrigatório."),
+  contactId: z.string().min(1, "O contato é obrigatório."),
+  ownerId: z.string().min(1, "O responsável é obrigatório."),
+});
+
+type DealFormValues = z.infer<typeof dealFormSchema>;
+
+const noteFormSchema = z.object({
+    content: z.string().min(1, "O conteúdo da nota não pode estar vazio.")
+});
+type NoteFormValues = z.infer<typeof noteFormSchema>;
+
+interface DealModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  deal: Deal | null;
+  pipelines: Pipeline[];
+  contacts: Contact[];
+  employees: Employee[];
+  onDealUpdated: () => void;
+}
+
+export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employees, onDealUpdated }: DealModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const form = useForm<DealFormValues>({
+    resolver: zodResolver(dealFormSchema),
+    defaultValues: {
+      title: "",
+      value: 0,
+      pipelineId: "",
+      stage: "",
+      contactId: "",
+      ownerId: "",
+    },
+  });
+
+  const noteForm = useForm<NoteFormValues>({
+      resolver: zodResolver(noteFormSchema),
+      defaultValues: { content: "" }
+  });
+
+  const selectedPipelineId = form.watch("pipelineId");
+  const stages = pipelines.find(p => p.id === selectedPipelineId)?.stages || [];
+
+  useEffect(() => {
+    if (deal) {
+      form.reset(deal);
+    } else {
+      form.reset({
+        title: "",
+        value: 0,
+        pipelineId: pipelines[0]?.id || "",
+        stage: pipelines[0]?.stages[0] || "",
+        contactId: "",
+        ownerId: user?.uid || "",
+      });
+    }
+  }, [deal, pipelines, isOpen, user]);
+
+  useEffect(() => {
+    if (deal?.id) {
+      const unsubscribe = getNotes(deal.id, setNotes);
+      return () => unsubscribe();
+    }
+  }, [deal]);
+
+
+  const onSubmit = async (values: DealFormValues) => {
+    setLoading(true);
+    try {
+      if (deal) {
+        await updateDeal(deal.id, values);
+        toast({ title: "Sucesso", description: "Negociação atualizada." });
+      } else {
+        await addDeal(values);
+        toast({ title: "Sucesso", description: "Negociação criada." });
+      }
+      onDealUpdated();
+      onClose();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: "Ocorreu um erro." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onNoteSubmit = async (values: NoteFormValues) => {
+    if(!deal || !user?.email) return;
+    setLoading(true);
+    try {
+        await addNote(deal.id, { content: values.content, author: user.email });
+        noteForm.reset();
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erro", description: "Não foi possível adicionar a nota." });
+    } finally {
+        setLoading(false);
+    }
+  }
+
+  const onDeleteConfirm = async () => {
+    if (!deal) return;
+    setLoading(true);
+    try {
+        await deleteDeal(deal.id);
+        toast({ title: "Sucesso", description: "Negociação excluída." });
+        onDealUpdated();
+        onClose();
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir a negociação." });
+    } finally {
+        setLoading(false);
+        setIsDeleteAlertOpen(false);
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{deal ? "Editar Negociação" : "Nova Negociação"}</DialogTitle>
+        </DialogHeader>
+        <Tabs defaultValue="details">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Detalhes</TabsTrigger>
+            <TabsTrigger value="notes" disabled={!deal}>Notas</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="details">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Título</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor (R$)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="pipelineId" render={({ field }) => (<FormItem><FormLabel>Pipeline</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{pipelines.map(p=>(<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={form.control} name="stage" render={({ field }) => (<FormItem><FormLabel>Estágio</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{stages.map(s=>(<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="contactId" render={({ field }) => (<FormItem><FormLabel>Contato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{contacts.map(c=>(<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={form.control} name="ownerId" render={({ field }) => (<FormItem><FormLabel>Responsável</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{employees.map(e=>(<SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                </div>
+                <DialogFooter>
+                    {deal && (
+                        <Button type="button" variant="destructive" onClick={() => setIsDeleteAlertOpen(true)} disabled={loading}><Trash className="mr-2 h-4 w-4" /> Excluir</Button>
+                    )}
+                    <div className="flex-grow" />
+                    <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+                    <Button type="submit" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </TabsContent>
+
+          <TabsContent value="notes">
+            <div className="space-y-4 pt-4">
+                <Form {...noteForm}>
+                    <form onSubmit={noteForm.handleSubmit(onNoteSubmit)} className="space-y-2">
+                         <FormField control={noteForm.control} name="content" render={({ field }) => (<FormItem><FormLabel>Nova Nota</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                         <Button type="submit" size="sm" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Adicionar Nota</Button>
+                    </form>
+                </Form>
+                <ScrollArea className="h-64">
+                    <div className="space-y-4 pr-4">
+                        {notes.map(note => (
+                            <div key={note.id} className="text-sm p-3 bg-muted/50 rounded-md">
+                                <p className="whitespace-pre-wrap">{note.content}</p>
+                                <p className="text-xs text-muted-foreground mt-2">{note.author} - {note.createdAt ? format(note.createdAt, 'dd/MM/yyyy HH:mm') : '...'}</p>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+            </div>
+          </TabsContent>
+        </Tabs>
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Essa ação não pode ser desfeita. Isso excluirá permanentemente a negociação.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={onDeleteConfirm} disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Confirmar</AlertDialogAction></AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      </DialogContent>
+    </Dialog>
+  );
+}
