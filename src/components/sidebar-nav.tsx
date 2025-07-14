@@ -8,6 +8,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
@@ -17,11 +20,22 @@ import {
   Banknote,
   ShoppingCart,
   Zap,
+  Users,
+  Building2,
 } from "lucide-react";
+import * as Collapsible from "@radix-ui/react-collapsible";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboards", icon: LayoutDashboard },
-  { href: "/dashboard/gestao", label: "Gestão", icon: Briefcase },
+  { 
+    id: "gestao",
+    label: "Gestão", 
+    icon: Briefcase,
+    subItems: [
+      { href: "/dashboard/gestao/funcionarios", label: "Funcionários", icon: Users },
+      { href: "/dashboard/gestao/cargos", label: "Cargos", icon: Building2 },
+    ]
+  },
   { href: "/dashboard/conteudo", label: "Conteúdo", icon: FileText },
   { href: "/dashboard/operacoes", label: "Operações", icon: Cog },
   { href: "/dashboard/financeiro", label: "Financeiro", icon: Banknote },
@@ -42,10 +56,40 @@ export function SidebarNav() {
       <SidebarContent>
         <SidebarMenu>
           {navItems.map((item) => (
+            item.subItems ? (
+              <Collapsible.Root key={item.id} asChild defaultOpen={pathname.startsWith(`/dashboard/${item.id}`)}>
+                <SidebarMenuItem>
+                  <Collapsible.Trigger asChild>
+                     <SidebarMenuButton
+                        isActive={pathname.startsWith(`/dashboard/${item.id}`)}
+                        tooltip={item.label}
+                        className="justify-start"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                  </Collapsible.Trigger>
+                  <Collapsible.Content asChild>
+                    <SidebarMenuSub>
+                      {item.subItems.map((subItem) => (
+                         <SidebarMenuSubItem key={subItem.href}>
+                           <Link href={subItem.href}>
+                              <SidebarMenuSubButton isActive={pathname === subItem.href}>
+                                <subItem.icon className="h-4 w-4" />
+                                <span>{subItem.label}</span>
+                              </SidebarMenuSubButton>
+                           </Link>
+                         </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </Collapsible.Content>
+                </SidebarMenuItem>
+              </Collapsible.Root>
+            ) : (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href}>
+              <Link href={item.href!}>
                 <SidebarMenuButton
-                  isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)}
+                  isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href!)}
                   tooltip={item.label}
                   className="justify-start"
                 >
@@ -54,6 +98,7 @@ export function SidebarNav() {
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
+            )
           ))}
         </SidebarMenu>
       </SidebarContent>
