@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PlusCircle, Edit, Trash, MoreHorizontal, Loader2 } from "lucide-react";
 
-import { Employee, Role, addEmployee, updateEmployee, deleteEmployee, getEmployees, getRoles } from "@/lib/firebase/firestore";
-import { auth } from "@/lib/firebase/client";
+import { Employee, Role, updateEmployee, deleteEmployee, getEmployees, getRoles } from "@/lib/firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,14 +67,23 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Schema for adding a new employee (includes password)
+const addFormSchema = z.object({
+  name: z.string().min(1, "O nome é obrigatório."),
+  email: z.string().email("Email inválido."),
+  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres."),
+  roleId: z.string().min(1, "O cargo é obrigatório."),
+});
 
-const formSchema = z.object({
+// Schema for editing an employee (password is not required/editable here)
+const editFormSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   email: z.string().email("Email inválido."),
   roleId: z.string().min(1, "O cargo é obrigatório."),
 });
 
-type EmployeeFormValues = z.infer<typeof formSchema>;
+type AddEmployeeFormValues = z.infer<typeof addFormSchema>;
+type EditEmployeeFormValues = z.infer<typeof editFormSchema>;
 
 export function EmployeesClient() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -86,62 +93,60 @@ export function EmployeesClient() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
 
-  useEffect(() => {
-    async function fetchData() {
-      if (user) {
-        setPageLoading(true);
-        try {
-          // A linha de log que você solicitou:
-          console.log("Status do usuário antes de buscar dados:", auth.currentUser);
+  const isEditing = !!selectedEmployee;
 
-          const employeesData = await getEmployees();
-          const rolesData = await getRoles();
-          setEmployees(employeesData);
-          setRoles(rolesData);
-        } catch (error) {
-          console.error("Firebase permission error:", error);
-          toast({
-            variant: "destructive",
-            title: "Erro de Permissão",
-            description: "Você não tem permissão para ver estes dados. Verifique as regras do Firestore.",
-          });
-        } finally {
-          setPageLoading(false);
-        }
-      }
-    }
-    fetchData();
-  }, [user, toast]);
-
-
-  const form = useForm<EmployeeFormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm({
+    resolver: zodResolver(isEditing ? editFormSchema : addFormSchema),
     defaultValues: {
       name: "",
       email: "",
+      password: "",
       roleId: "",
     },
   });
 
+  const refreshData = async () => {
+    setPageLoading(true);
+    try {
+        if (!user) return;
+        const [employeesData, rolesData] = await Promise.all([getEmployees(), getRoles()]);
+        setEmployees(employeesData);
+        setRoles(rolesData);
+    } catch (error) {
+        console.error("Firebase permission error:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro de Permissão",
+            description: "Você não tem permissão para ver estes dados.",
+        });
+    } finally {
+        setPageLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refreshData();
+  }, [user]);
+
+  useEffect(() => {
+    if (isEditing) {
+        form.reset({
+            name: selectedEmployee.name,
+            email: selectedEmployee.email,
+            roleId: selectedEmployee.roleId,
+            password: "" // Clear password on edit
+        });
+    } else {
+        form.reset({ name: "", email: "", password: "", roleId: "" });
+    }
+  }, [isFormOpen, selectedEmployee, form, isEditing]);
+
+
   const handleDialogOpen = (employee: Employee | null) => {
     setSelectedEmployee(employee);
-    if (employee) {
-      form.reset({
-        name: employee.name,
-        email: employee.email,
-        roleId: employee.roleId,
-      });
-    } else {
-      form.reset({
-        name: "",
-        email: "",
-        roleId: "",
-      });
-    }
     setIsFormOpen(true);
   };
 
@@ -150,26 +155,28 @@ export function EmployeesClient() {
     setIsDeleteAlertOpen(true);
   }
 
-  const refreshData = async () => {
-    const employeesData = await getEmployees();
-    setEmployees(employeesData);
-  }
-
-  const onSubmit = async (values: EmployeeFormValues) => {
+  const onSubmit = async (values: AddEmployeeFormValues | EditEmployeeFormValues) => {
     setLoading(true);
     try {
-      if (selectedEmployee) {
-        await updateEmployee(selectedEmployee.id, values);
+      if (isEditing && selectedEmployee) {
+        await updateEmployee(selectedEmployee.id, { name: values.name, roleId: values.roleId });
         toast({ title: "Sucesso", description: "Funcionário atualizado." });
       } else {
-        await addEmployee(values);
+         const response = await fetch('/api/create-user', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify(values),
+         });
+         const result = await response.json();
+         if (!response.ok) {
+             throw new Error(result.error || "Falha ao criar usuário");
+         }
         toast({ title: "Sucesso", description: "Funcionário adicionado." });
       }
       await refreshData();
       setIsFormOpen(false);
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Erro", description: "Ocorreu um erro." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message || "Ocorreu um erro." });
     } finally {
       setLoading(false);
     }
@@ -203,69 +210,33 @@ export function EmployeesClient() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <DialogHeader>
-                <DialogTitle>{selectedEmployee ? "Editar Funcionário" : "Adicionar Funcionário"}</DialogTitle>
+                <DialogTitle>{isEditing ? "Editar Funcionário" : "Adicionar Funcionário"}</DialogTitle>
                 <DialogDescription>
-                  Preencha os detalhes do funcionário.
+                  Preencha os detalhes do funcionário. A senha será usada para o primeiro login.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome completo" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="email@dominio.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="roleId"
-                  render={({ field }) => (
+                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nome</FormLabel><FormControl><Input placeholder="Nome completo" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                 <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="email@dominio.com" {...field} disabled={isEditing} /></FormControl><FormMessage /></FormItem>)}/>
+                 {!isEditing && (
+                    <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>Senha</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                 )}
+                 <FormField control={form.control} name="roleId" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cargo</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um cargo" />
-                          </SelectTrigger>
-                        </FormControl>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione um cargo" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          {roles.map(role => (
-                            <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
-                          ))}
+                          {roles.map(role => (<SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
+                  )}/>
               </div>
               <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancelar</Button>
-                </DialogClose>
-                <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar
-                </Button>
+                <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+                <Button type="submit" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar</Button>
               </DialogFooter>
             </form>
           </Form>
@@ -274,43 +245,21 @@ export function EmployeesClient() {
       
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-                Essa ação não pode ser desfeita. Isso excluirá permanentemente o funcionário.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={onDeleteConfirm} disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Continuar
-            </AlertDialogAction>
-            </AlertDialogFooter>
+            <AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Essa ação não pode ser desfeita. Isso excluirá permanentemente o funcionário.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={onDeleteConfirm} disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Continuar</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Lista de Funcionários</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Lista de Funcionários</CardTitle></CardHeader>
         <CardContent>
            {pageLoading ? (
             <div className="space-y-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" />
             </div>
            ) : (
             <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead className="w-[100px] text-right">Ações</TableHead>
-                </TableRow>
-                </TableHeader>
+                <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Email</TableHead><TableHead>Cargo</TableHead><TableHead className="w-[100px] text-right">Ações</TableHead></TableRow></TableHeader>
                 <TableBody>
                 {employees.map((employee) => (
                     <TableRow key={employee.id}>
@@ -319,21 +268,10 @@ export function EmployeesClient() {
                     <TableCell>{employee.role}</TableCell>
                     <TableCell className="text-right">
                         <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Abrir menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><span className="sr-only">Abrir menu</span><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleDialogOpen(employee)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteAlertOpen(employee)} className="text-destructive focus:text-destructive">
-                            <Trash className="mr-2 h-4 w-4" />
-                            Excluir
-                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDialogOpen(employee)}><Edit className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteAlertOpen(employee)} className="text-destructive focus:text-destructive"><Trash className="mr-2 h-4 w-4" />Excluir</DropdownMenuItem>
                         </DropdownMenuContent>
                         </DropdownMenu>
                     </TableCell>

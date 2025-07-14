@@ -14,6 +14,9 @@ import {
   Contact,
   Building,
   KanbanSquare,
+  Package,
+  ClipboardCheck,
+  PlaySquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +41,9 @@ const navItems = [
     id: "operacoes",
     label: "Operações", 
     subItems: [
-       { href: "/dashboard/operacoes", label: "Visão Geral", icon: Cog },
+       { href: "/dashboard/operacoes/produtos", label: "Gerenciar Produtos", icon: Package },
+       { href: "/dashboard/operacoes/onboarding", label: "Onboarding", icon: PlaySquare },
+       { href: "/dashboard/operacoes/acompanhamento", label: "Acompanhamento", icon: ClipboardCheck },
     ]
   },
   { 
@@ -80,8 +85,8 @@ export function SidebarNav() {
               <ul className="space-y-1">
                 {item.subItems.map((subItem) => (
                   <li key={subItem.href}>
-                    <Link href={subItem.href}>
-                      <span
+                    <Link href={subItem.href} passHref>
+                      <a
                         className={cn(
                           "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
                           (pathname.startsWith(subItem.href))
@@ -90,7 +95,7 @@ export function SidebarNav() {
                       >
                         <subItem.icon className="h-4 w-4" />
                         {subItem.label}
-                      </span>
+                      </a>
                     </Link>
                   </li>
                 ))}

@@ -1,20 +1,6 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { redirect } from 'next/navigation';
 
 export default function OperacoesPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="font-headline text-3xl font-bold tracking-tight">Operações</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Página de Operações</CardTitle>
-          <CardDescription>
-            Funcionalidades de operações serão exibidas aqui.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>Conteúdo em desenvolvimento.</p>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  // Redirect to the first page in the operations module
+  redirect('/dashboard/operacoes/produtos');
 }
