@@ -40,8 +40,8 @@ export default function AcompanhamentoPage() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {followUps.map(item => (
-                        <Link key={item.id} href={`/dashboard/operacoes/acompanhamento/${item.id}`} passHref>
-                           <a>
+                        <Link key={item.id} href={`/dashboard/operacoes/acompanhamento/${item.id}`} passHref legacyBehavior>
+                           <a className="block h-full">
                             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                                 <CardHeader>
                                     <CardTitle>{item.contactName}</CardTitle>
