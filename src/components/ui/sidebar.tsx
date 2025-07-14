@@ -544,12 +544,12 @@ const SidebarMenuButton = React.forwardRef<
 >(
   (
     {
-      asChild = false,
       isActive = false,
       variant = "default",
       size = "default",
       tooltip,
       className,
+      asChild,
       ...props
     },
     ref
@@ -762,3 +762,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    
