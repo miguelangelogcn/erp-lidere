@@ -1,18 +1,7 @@
-
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-} from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
   Briefcase,
@@ -24,7 +13,7 @@ import {
   Users,
   Building2,
 } from "lucide-react";
-import * as Collapsible from "@radix-ui/react-collapsible";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboards", icon: LayoutDashboard },
@@ -47,62 +36,51 @@ export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <>
-      <SidebarHeader>
-        <Link href="/dashboard" className="flex items-center gap-2 p-2">
-            <Zap className="h-6 w-6 text-primary" />
-            <h2 className="font-headline text-lg font-semibold tracking-tight">Central Hub</h2>
+    <div className="flex h-full flex-col">
+       <div className="flex h-14 items-center border-b px-4">
+        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+          <Zap className="h-6 w-6 text-primary" />
+          <span className="">Central Hub</span>
         </Link>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarMenu>
-          {navItems.map((item) => (
-            item.subItems ? (
-              <Collapsible.Root key={item.id} asChild defaultOpen={pathname.startsWith(`/dashboard/${item.id}`)}>
-                <SidebarMenuItem>
-                  <Collapsible.Trigger asChild>
-                     <SidebarMenuButton
-                        isActive={pathname.startsWith(`/dashboard/${item.id}`)}
-                        tooltip={item.label}
-                        className="justify-start"
+      </div>
+      <nav className="flex-1 space-y-1 p-2">
+        {navItems.map((item) => (
+          item.subItems ? (
+            <div key={item.id} className="space-y-1">
+              <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{item.label}</h4>
+              <ul className="space-y-1">
+                {item.subItems.map((subItem) => (
+                  <li key={subItem.href}>
+                    <Link href={subItem.href}>
+                      <span
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                          pathname === subItem.href && "bg-muted text-foreground"
+                        )}
                       >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                  </Collapsible.Trigger>
-                  <Collapsible.Content asChild>
-                    <SidebarMenuSub>
-                      {item.subItems.map((subItem) => (
-                         <SidebarMenuSubItem key={subItem.href}>
-                           <Link href={subItem.href} asChild>
-                              <SidebarMenuSubButton isActive={pathname === subItem.href}>
-                                <subItem.icon className="h-4 w-4" />
-                                <span>{subItem.label}</span>
-                              </SidebarMenuSubButton>
-                           </Link>
-                         </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </Collapsible.Content>
-                </SidebarMenuItem>
-              </Collapsible.Root>
-            ) : (
-            <SidebarMenuItem key={item.href}>
-              <Link href={item.href!} asChild>
-                <SidebarMenuButton
-                  isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href!)}
-                  tooltip={item.label}
-                  className="justify-start"
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            )
-          ))}
-        </SidebarMenu>
-      </SidebarContent>
-    </>
+                        <subItem.icon className="h-4 w-4" />
+                        {subItem.label}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <Link key={item.href} href={item.href!}>
+              <span
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  pathname === item.href && "bg-muted text-foreground"
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </span>
+            </Link>
+          )
+        ))}
+      </nav>
+    </div>
   );
 }
