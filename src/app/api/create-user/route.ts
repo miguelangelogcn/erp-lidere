@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     
     const { email, password, name, roleId } = validation.data;
 
+    // We get the role name to set it as a custom claim. This is useful for backend security rules.
     const roleDoc = await adminDb.collection("roles").doc(roleId).get();
     if (!roleDoc.exists) {
         return NextResponse.json({ error: "Role not found" }, { status: 400 });
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
       displayName: name,
     });
     
-    // 2. Set custom claim for role
+    // 2. Set custom claim for role (useful for securing Firebase Storage/Firestore from the client)
     await adminAuth.setCustomUserClaims(userRecord.uid, { role: roleName });
 
     // 3. Create user document in Firestore "users" collection
@@ -60,5 +61,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
-
-    

@@ -2,10 +2,8 @@
 
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
 import { app } from "./client";
-import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
 
 export const db = getFirestore(app);
-const auth = getAuth(app);
 
 
 // --- TYPE DEFINITIONS ---
@@ -356,16 +354,18 @@ export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
     let followUpsQuery;
 
     if (userId) {
-        // Query for a specific student's follow-ups.
-        // A student's contactId is their UID in the users collection.
-        // For students created from contacts, the contactId is the UID.
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+        const contactId = userDoc.exists() ? userDoc.id : null;
+
+        if (!contactId) return [];
+
         followUpsQuery = query(
             followUpsCol,
-            where("contactId", "==", userId),
+            where("contactId", "==", contactId),
             orderBy("createdAt", "desc")
         );
     } else {
-        // Query for all follow-ups (for employees).
         followUpsQuery = query(followUpsCol, orderBy("createdAt", "desc"));
     }
 
@@ -471,15 +471,7 @@ export const getUserProgress = async (userId: string): Promise<UserProgress> => 
 
 export const updateUserProgress = async (userId: string, lessonId: string, completed: boolean) => {
     const progressRef = doc(db, `userProgress/${userId}`);
-    const progressDoc = await getDoc(progressRef);
-    if (progressDoc.exists()) {
-        return updateDoc(progressRef, { [lessonId]: completed });
-    } else {
-        // If the document doesn't exist, create it first
-        return await writeBatch(db)
-            .set(progressRef, { [lessonId]: completed })
-            .commit();
-    }
+    return setDoc(progressRef, { [lessonId]: completed }, { merge: true });
 };
 
 
