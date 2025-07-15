@@ -1,8 +1,12 @@
 
-import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc } from "firebase/firestore";
+
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
 import { app } from "./client";
+import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
 
 const db = getFirestore(app);
+const auth = getAuth(app);
+
 
 // --- TYPE DEFINITIONS ---
 
@@ -11,6 +15,7 @@ export interface Contact {
     name: string;
     email: string;
     phone?: string;
+    userId?: string;
 }
 
 export interface Company {
@@ -192,12 +197,58 @@ export const deleteEmployee = (id: string) => deleteDoc(doc(db, "users", id));
 // Contacts CRUD
 export const getContacts = async (): Promise<Contact[]> => {
     const contactsCol = collection(db, "contacts");
-    const snapshot = await getDocs(contactsCol);
+    const snapshot = await getDocs(query(contactsCol, orderBy("name")));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
 };
-export const addContact = (contact: Omit<Contact, "id">) => addDoc(collection(db, "contacts"), contact);
+export const addContact = (contact: Omit<Contact, "id" | "userId">) => addDoc(collection(db, "contacts"), contact);
 export const updateContact = (id: string, contact: Partial<Contact>) => updateDoc(doc(db, "contacts", id), contact);
 export const deleteContact = (id: string) => deleteDoc(doc(db, "contacts", id));
+
+
+export const createStudentFromContact = async (contact: Contact, password: string): Promise<void> => {
+    try {
+        const roles = await getRoles();
+        const studentRole = roles.find(r => r.name.toLowerCase() === 'student');
+        if (!studentRole) {
+            throw new Error("Cargo 'Student' não encontrado. Crie o cargo antes de continuar.");
+        }
+
+        // Check if user already exists in auth or users collection to prevent duplicates
+        const userQuery = query(collection(db, "users"), where("email", "==", contact.email));
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+            throw new Error("Um usuário com este e-mail já existe.");
+        }
+        
+        // This function must be called from a secure environment (e.g. Cloud Function) or you need to manage auth state carefully
+        // For client-side, this creates a user on the currently running client instance. 
+        // A more robust solution might use a Cloud Function to create the user to avoid auth state conflicts.
+        const userCredential = await createUserWithEmailAndPassword(auth, contact.email, password);
+        const user = userCredential.user;
+
+        const newUserDoc: Omit<Employee, "id" | "role"> = {
+            name: contact.name,
+            email: contact.email,
+            roleId: studentRole.id,
+            assignedCourses: [],
+        };
+        
+        await setDoc(doc(db, "users", user.uid), newUserDoc);
+        await updateDoc(doc(db, "contacts", contact.id), { userId: user.uid });
+        
+    } catch (error: any) {
+        // Handle specific Firebase Auth errors
+        if (error.code === 'auth/email-already-in-use') {
+            throw new Error('Este email já está sendo usado por outro usuário.');
+        }
+        if (error.code === 'auth/weak-password') {
+            throw new Error('A senha é muito fraca. Tente uma senha mais forte.');
+        }
+        console.error("Error creating student from contact:", error);
+        throw new Error(error.message || 'Falha ao criar o acesso de aluno.');
+    }
+};
+
 
 // Companies CRUD
 export const getCompanies = async (): Promise<Company[]> => {
@@ -450,3 +501,5 @@ export const systemPages = [
     { id: "financeiro", label: "Financeiro" },
     { id: "vendas", label: "Vendas" },
 ];
+
+    
