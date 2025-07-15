@@ -311,11 +311,23 @@ export const addFollowUp = async (onboarding: Onboarding) => {
 export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
     let q = query(collection(db, "followUps"), orderBy("createdAt", "desc"));
     if (userId) {
-        q = query(q, where("contactId", "==", userId));
+        // This assumes the student's UID is stored as the contactId for follow-ups.
+        // We might need to adjust this logic if a student's own user record is what we need to query against.
+        // For now, let's assume the `contactId` in `followUps` matches the `user.uid` for students.
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            q = query(q, where("contactId", "==", userId));
+        } else {
+             // If no user doc found, maybe they are a legacy contact. This logic might need refinement.
+             // For now, return no follow-ups if the user doc doesn't exist.
+            return [];
+        }
     }
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FollowUp));
 };
+
 
 // Follow-up Subcollections
 export const getMentorships = (followUpId: string, callback: (data: Mentorship[]) => void) => {
@@ -377,6 +389,10 @@ export const getModules = async (courseId: string): Promise<Module[]> => {
     const snapshot = await getDocs(query(modulesCol, orderBy("order")));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Module));
 };
+export const getModule = async (courseId: string, moduleId: string): Promise<Module | null> => {
+    const moduleDoc = await getDoc(doc(db, `courses/${courseId}/modules`, moduleId));
+    return moduleDoc.exists() ? { id: moduleDoc.id, ...moduleDoc.data() } as Module : null;
+};
 export const addModule = (courseId: string, data: Omit<Module, "id">) => addDoc(collection(db, `courses/${courseId}/modules`), data);
 export const updateModule = (courseId: string, moduleId: string, data: Partial<Module>) => updateDoc(doc(db, `courses/${courseId}/modules`, moduleId), data);
 export const deleteModule = (courseId: string, moduleId: string) => deleteDoc(doc(db, `courses/${courseId}/modules`, moduleId));
@@ -394,12 +410,33 @@ export const deleteLesson = (courseId: string, moduleId: string, lessonId: strin
 // User Progress
 export const getUserProgress = async (userId: string): Promise<UserProgress> => {
     const progressDoc = await getDoc(doc(db, `userProgress/${userId}`));
-    return progressDoc.exists() ? progressDoc.data() : {};
+    if (!progressDoc.exists()) {
+        return {};
+    }
+    const data = progressDoc.data();
+    // Filter out any potential non-boolean values if the data is not clean
+    const cleanProgress: UserProgress = {};
+    for (const key in data) {
+        if (typeof data[key] === 'boolean') {
+            cleanProgress[key] = data[key];
+        }
+    }
+    return cleanProgress;
 };
-export const updateUserProgress = (userId: string, lessonId: string, completed: boolean) => {
+
+export const updateUserProgress = async (userId: string, lessonId: string, completed: boolean) => {
     const progressRef = doc(db, `userProgress/${userId}`);
-    return updateDoc(progressRef, { [lessonId]: completed }, { merge: true });
+    const progressDoc = await getDoc(progressRef);
+    if (progressDoc.exists()) {
+        return updateDoc(progressRef, { [lessonId]: completed });
+    } else {
+        // If the document doesn't exist, create it first
+        return await writeBatch(db)
+            .set(progressRef, { [lessonId]: completed })
+            .commit();
+    }
 };
+
 
 
 // System Pages for Permissions
@@ -413,5 +450,3 @@ export const systemPages = [
     { id: "financeiro", label: "Financeiro" },
     { id: "vendas", label: "Vendas" },
 ];
-
-    
