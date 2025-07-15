@@ -358,6 +358,7 @@ export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
     if (userId) {
         // Query for a specific student's follow-ups.
         // A student's contactId is their UID in the users collection.
+        // For students created from contacts, the contactId is the UID.
         followUpsQuery = query(
             followUpsCol,
             where("contactId", "==", userId),
