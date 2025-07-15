@@ -1,3 +1,4 @@
+"use client";
 
 import { CoursesClient } from "./courses-client";
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { ProductsClient } from "./products-client";
 
 export default function GerenciarProdutosPage() {

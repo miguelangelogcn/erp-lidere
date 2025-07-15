@@ -1,3 +1,5 @@
+"use client";
+
 import { RolesClient } from "./roles-client";
 
 export default function CargosPage() {

@@ -1,3 +1,5 @@
+"use client";
+
 import { FollowUpClient } from "./follow-up-client";
 
 export default function FollowUpDetailsPage({ params }: { params: { id: string } }) {
