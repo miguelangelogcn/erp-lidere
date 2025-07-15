@@ -4,7 +4,7 @@ import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, q
 import { app } from "./client";
 import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
 
-const db = getFirestore(app);
+export const db = getFirestore(app);
 const auth = getAuth(app);
 
 
@@ -501,5 +501,3 @@ export const systemPages = [
     { id: "financeiro", label: "Financeiro" },
     { id: "vendas", label: "Vendas" },
 ];
-
-    

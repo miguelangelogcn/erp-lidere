@@ -3,9 +3,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Course, Employee, getAssignedCourses } from "@/lib/firebase/firestore";
+import { Course, Employee, getAssignedCourses, db } from "@/lib/firebase/firestore";
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -66,5 +65,3 @@ export function StudentCoursesClient() {
     </div>
   );
 }
-
-    
