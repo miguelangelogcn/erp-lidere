@@ -3,15 +3,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Course, Module, Lesson, UserProgress, getCourse, getModules, getLessons, getUserProgress, updateUserProgress } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Paperclip, PlayCircle, CheckCircle, Circle } from 'lucide-react';
-import ReactPlayer from 'react-player/youtube';
+import { Paperclip, CheckCircle, Circle } from 'lucide-react';
+import { getYouTubeEmbedUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface ModuleWithLessons extends Module {
@@ -94,6 +94,8 @@ export default function StudentCoursePage() {
         return <div>Curso não encontrado.</div>
     }
 
+    const embedUrl = selectedLesson?.videoUrl ? getYouTubeEmbedUrl(selectedLesson.videoUrl) : null;
+
     return (
         <div className="space-y-4">
             <Breadcrumb>
@@ -109,9 +111,16 @@ export default function StudentCoursePage() {
                 <div className="lg:col-span-2">
                     {selectedLesson ? (
                         <div className="space-y-6">
-                             {selectedLesson.videoUrl && (
+                             {embedUrl && (
                                 <div className="aspect-video w-full overflow-hidden rounded-lg border">
-                                    <ReactPlayer url={selectedLesson.videoUrl} width="100%" height="100%" controls />
+                                    <iframe
+                                        width="100%"
+                                        height="100%"
+                                        src={embedUrl}
+                                        title="YouTube video player"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                        allowFullScreen
+                                    ></iframe>
                                 </div>
                             )}
                             <h1 className="font-headline text-3xl font-bold tracking-tight">{selectedLesson.title}</h1>
@@ -180,5 +189,3 @@ export default function StudentCoursePage() {
     );
 }
 
-
-    
