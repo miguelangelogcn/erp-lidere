@@ -14,6 +14,7 @@ import {
   getContacts,
   getProducts,
   updateOnboarding,
+  deleteOnboarding,
   addFollowUpFromOnboarding,
   getDoc,
   doc,
@@ -25,6 +26,7 @@ import { OnboardingCard } from "./onboarding-card";
 import { StartOnboardingModal } from "./start-onboarding-modal";
 import { OnboardingDetailsModal } from "./onboarding-details-modal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Loader2 } from "lucide-react";
 
 const KANBAN_COLUMNS = ["A Fazer", "Fazendo", "Feito"] as const;
 
@@ -35,10 +37,14 @@ export function OnboardingClient() {
   
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isConfirmFinishModalOpen, setIsConfirmFinishModalOpen] = useState(false);
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
   const [selectedOnboarding, setSelectedOnboarding] = useState<Onboarding | null>(null);
   const [onboardingToFinish, setOnboardingToFinish] = useState<Onboarding | null>(null);
+  const [onboardingToDelete, setOnboardingToDelete] = useState<Onboarding | null>(null);
+  
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -84,7 +90,7 @@ export function OnboardingClient() {
         return;
       }
       setOnboardingToFinish(onboardingToMove);
-      setIsConfirmModalOpen(true);
+      setIsConfirmFinishModalOpen(true);
       return; 
     }
     
@@ -103,7 +109,7 @@ export function OnboardingClient() {
     if (!onboardingToFinish) return;
     const originalOnboardings = [...onboardings];
     
-    setIsConfirmModalOpen(false);
+    setIsConfirmFinishModalOpen(false);
 
     try {
         const contactRef = doc(db, 'contacts', onboardingToFinish.contactId);
@@ -126,6 +132,27 @@ export function OnboardingClient() {
         setOnboardingToFinish(null);
     }
   };
+  
+  const handleDeleteRequest = (onboarding: Onboarding) => {
+    setOnboardingToDelete(onboarding);
+    setIsConfirmDeleteModalOpen(true);
+  }
+
+  const handleDeleteConfirmation = async () => {
+    if (!onboardingToDelete) return;
+    setActionLoading(true);
+    try {
+      await deleteOnboarding(onboardingToDelete.id);
+      toast({ title: "Sucesso", description: "Onboarding excluído." });
+      await refreshData();
+      setIsConfirmDeleteModalOpen(false);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir o onboarding." });
+    } finally {
+      setActionLoading(false);
+      setOnboardingToDelete(null);
+    }
+  }
 
 
   const openDetailsModal = (onboarding: Onboarding) => {
@@ -158,7 +185,12 @@ export function OnboardingClient() {
           ) : KANBAN_COLUMNS.map((status) => (
             <KanbanColumn key={status} id={status} title={status}>
                 {onboardings.filter((o) => o.status === status).map((onboarding) => (
-                    <OnboardingCard key={onboarding.id} onboarding={onboarding} onClick={() => openDetailsModal(onboarding)} />
+                    <OnboardingCard 
+                        key={onboarding.id} 
+                        onboarding={onboarding} 
+                        onClick={() => openDetailsModal(onboarding)} 
+                        onDelete={() => handleDeleteRequest(onboarding)}
+                    />
                 ))}
             </KanbanColumn>
           ))}
@@ -184,10 +216,23 @@ export function OnboardingClient() {
         />
       )}
 
-      <AlertDialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
+      <AlertDialog open={isConfirmFinishModalOpen} onOpenChange={setIsConfirmFinishModalOpen}>
         <AlertDialogContent>
             <AlertDialogHeader><AlertDialogTitle>Confirmar Conclusão?</AlertDialogTitle><AlertDialogDescription>Ao mover para 'Feito', um novo registro de Acompanhamento será criado para este cliente. Deseja continuar?</AlertDialogDescription></AlertDialogHeader>
             <AlertDialogFooter><AlertDialogCancel onClick={() => setOnboardingToFinish(null)}>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleFinishConfirmation}>Confirmar</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={isConfirmDeleteModalOpen} onOpenChange={setIsConfirmDeleteModalOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Confirmar Exclusão?</AlertDialogTitle><AlertDialogDescription>Tem certeza que deseja excluir este onboarding? Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setOnboardingToDelete(null)}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConfirmation} disabled={actionLoading}>
+                     {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Confirmar
+                </AlertDialogAction>
+            </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>

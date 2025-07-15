@@ -3,6 +3,7 @@
 
 
 
+
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
 import { app } from "./client";
 
@@ -342,6 +343,8 @@ export const startOnboarding = async (contact: Contact, product: Product) => {
     return addDoc(collection(db, "onboardings"), newOnboarding);
 };
 export const updateOnboarding = (id: string, data: Partial<Onboarding>) => updateDoc(doc(db, "onboardings", id), data);
+export const deleteOnboarding = (id: string) => deleteDoc(doc(db, "onboardings", id));
+
 
 // Follow-ups
 export const addFollowUpFromOnboarding = async (contactDocId: string, studentUserId: string, productId: string) => {
