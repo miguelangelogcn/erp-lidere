@@ -21,11 +21,13 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Sidebar - Auth User:', user); // Log 1: Usuário do Firebase Auth
       setUser(user);
       if (user) {
         // Get user role from custom claims or Firestore
         const tokenResult = await user.getIdTokenResult();
         const claimsRole = tokenResult.claims.role;
+        console.log('Sidebar - User Role from Claims:', claimsRole); // Log 2: Role dos claims
 
         if (claimsRole === 'student') {
             setUserRole('student');
@@ -49,5 +51,3 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
-
-    
