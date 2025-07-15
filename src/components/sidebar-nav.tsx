@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 const employeeNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/formacoes", label: "Minhas Formações", icon: GraduationCap },
   { 
     id: "gestao",
     label: "Gestão", 

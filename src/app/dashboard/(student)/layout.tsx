@@ -13,14 +13,16 @@ export default function StudentDashboardLayout({
   const router = useRouter();
 
   useEffect(() => {
+    // This layout is now only for role-specific pages that are NOT shared.
+    // If a shared page is needed, it should be moved out of this layout.
     if (!loading && userRole && userRole !== 'student') {
-        // Redirect non-students trying to access student pages
+        // Redirect non-students trying to access student-only pages
         router.push('/dashboard');
     }
   }, [userRole, loading, router]);
 
 
-  if (loading || userRole !== 'student') {
+  if (loading || (userRole && userRole !== 'student')) {
       return (
         <div className="flex h-screen items-center justify-center bg-background">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 animate-spin text-primary" ><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>

@@ -18,7 +18,7 @@ interface ModuleWithLessons extends Module {
     lessons: Lesson[];
 }
 
-export default function StudentCoursePage() {
+export default function CoursePage() {
     const params = useParams();
     const courseId = params.courseId as string;
     const { user } = useAuth();
@@ -188,4 +188,3 @@ export default function StudentCoursePage() {
         </div>
     );
 }
-

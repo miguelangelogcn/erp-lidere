@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function StudentCoursesClient() {
+export function CoursesClient() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const router = useRouter();

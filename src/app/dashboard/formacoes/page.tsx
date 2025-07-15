@@ -1,7 +1,7 @@
 
-import { StudentCoursesClient } from "./courses-client";
+import { CoursesClient } from "./courses-client";
 
-export default function StudentFormacoesPage() {
+export default function FormacoesPage() {
   return (
     <div className="space-y-6">
       <div
@@ -16,7 +16,7 @@ export default function StudentFormacoesPage() {
         <h1 className="font-headline text-3xl font-bold tracking-tight">Minhas Formações</h1>
         <p className="text-muted-foreground mt-2">Cursos e formações disponíveis para você.</p>
       </div>
-      <StudentCoursesClient />
+      <CoursesClient />
     </div>
   );
 }

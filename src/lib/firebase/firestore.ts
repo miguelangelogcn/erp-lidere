@@ -4,6 +4,7 @@
 
 
 
+
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
 import { app } from "./client";
 
@@ -495,7 +496,7 @@ export const deleteLesson = (courseId: string, moduleId: string, lessonId: strin
 
 // User Progress
 export const getUserProgress = async (userId: string): Promise<UserProgress> => {
-    const progressDoc = await getDoc(doc(db, `userProgress/${userId}`));
+    const progressDoc = await getDoc(doc(db, `users/${userId}/progress`));
     if (!progressDoc.exists()) {
         return {};
     }
@@ -510,7 +511,7 @@ export const getUserProgress = async (userId: string): Promise<UserProgress> => 
 };
 
 export const updateUserProgress = async (userId: string, lessonId: string, completed: boolean) => {
-    const progressRef = doc(db, `userProgress/${userId}`);
+    const progressRef = doc(db, `users/${userId}/progress`);
     return setDoc(progressRef, { [lessonId]: completed }, { merge: true });
 };
 

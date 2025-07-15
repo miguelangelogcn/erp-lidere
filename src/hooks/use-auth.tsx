@@ -38,19 +38,15 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
 
           if (roleDoc.exists()) {
             const roleName = roleDoc.data()?.name?.toLowerCase();
-            if (roleName === 'student') {
-              setUserRole('student');
-            } else {
-              setUserRole('employee');
-            }
+            setUserRole(roleName);
           } else {
              // Default to employee if role is not found, or handle as an error
-             setUserRole('employee');
+             setUserRole(null);
           }
         } else {
             // If there's no user document, they might be an old user or an error occurred
-            // Defaulting to employee role for safety, but could also redirect or show error
-            setUserRole('employee'); 
+            // Defaulting to null role for safety, but could also redirect or show error
+            setUserRole(null); 
         }
 
       } else {
