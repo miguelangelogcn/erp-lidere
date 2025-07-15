@@ -21,18 +21,36 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Sidebar - Auth User:', user); // Log 1: Usuário do Firebase Auth
       setUser(user);
       if (user) {
-        // Get user role from custom claims or Firestore
-        const tokenResult = await user.getIdTokenResult();
-        const claimsRole = tokenResult.claims.role;
-        console.log('Sidebar - User Role from Claims:', claimsRole); // Log 2: Role dos claims
+        // Fetch user document from Firestore to get the role
+        const db = getFirestore();
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
 
-        if (claimsRole === 'student') {
-            setUserRole('student');
-        } else {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const roleId = userData.roleId;
+
+          // Fetch the specific role document to get its name
+          const roleDocRef = doc(db, 'roles', roleId);
+          const roleDoc = await getDoc(roleDocRef);
+
+          if (roleDoc.exists()) {
+            const roleName = roleDoc.data()?.name?.toLowerCase();
+            if (roleName === 'student') {
+              setUserRole('student');
+            } else {
+              setUserRole('employee');
+            }
+          } else {
+             // Default to employee if role is not found, or handle as an error
              setUserRole('employee');
+          }
+        } else {
+            // If there's no user document, they might be an old user or an error occurred
+            // Defaulting to employee role for safety, but could also redirect or show error
+            setUserRole('employee'); 
         }
 
       } else {
