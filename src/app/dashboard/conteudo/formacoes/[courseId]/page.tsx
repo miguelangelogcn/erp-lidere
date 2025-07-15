@@ -1,26 +1,31 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { CourseModulesClient } from './modules-client';
 import { Course, getCourse } from '@/lib/firebase/firestore';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function CourseDetailsPage({ params }: { params: { courseId: string } }) {
+export default function CourseDetailsPage() {
+    const params = useParams();
+    const courseId = params.courseId as string;
+    
     const [course, setCourse] = useState<Course | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!courseId) return;
+        
         const fetchCourse = async () => {
             setLoading(true);
-            const courseData = await getCourse(params.courseId);
+            const courseData = await getCourse(courseId);
             setCourse(courseData);
             setLoading(false);
         };
         fetchCourse();
-    }, [params.courseId]);
+    }, [courseId]);
 
     if (loading) {
         return (
@@ -48,7 +53,7 @@ export default function CourseDetailsPage({ params }: { params: { courseId: stri
             </Link>
             <h1 className="font-headline text-3xl font-bold tracking-tight">{course.title}</h1>
             <p className="text-muted-foreground">{course.description}</p>
-            <CourseModulesClient courseId={params.courseId} />
+            <CourseModulesClient courseId={courseId} />
         </div>
     );
 }
