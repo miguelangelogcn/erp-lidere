@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -18,7 +19,9 @@ export default function AcompanhamentoPage() {
     useEffect(() => {
         const fetchData = async () => {
             if (!user) return;
+            setLoading(true);
             try {
+                // Fetch all follow-ups for employees
                 const data = await getFollowUps();
                 setFollowUps(data);
             } catch (error) {

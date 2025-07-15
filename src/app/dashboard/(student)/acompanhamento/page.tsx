@@ -19,7 +19,9 @@ export default function StudentAcompanhamentoPage() {
     useEffect(() => {
         const fetchData = async () => {
             if (!user) return;
+            setLoading(true);
             try {
+                // Pass user.uid to get only this student's follow-ups
                 const data = await getFollowUps(user.uid);
                 setFollowUps(data);
             } catch (error) {
@@ -64,6 +66,3 @@ export default function StudentAcompanhamentoPage() {
         </div>
     );
 }
-
-
-    

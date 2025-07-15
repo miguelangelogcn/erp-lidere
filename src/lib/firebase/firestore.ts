@@ -213,37 +213,28 @@ export const createStudentFromContact = async (contact: Contact, password: strin
             throw new Error("Cargo 'Student' não encontrado. Crie o cargo antes de continuar.");
         }
 
-        // Check if user already exists in auth or users collection to prevent duplicates
-        const userQuery = query(collection(db, "users"), where("email", "==", contact.email));
-        const userSnapshot = await getDocs(userQuery);
-        if (!userSnapshot.empty) {
-            throw new Error("Um usuário com este e-mail já existe.");
-        }
-        
-        // This function must be called from a secure environment (e.g. Cloud Function) or you need to manage auth state carefully
-        // For client-side, this creates a user on the currently running client instance. 
-        // A more robust solution might use a Cloud Function to create the user to avoid auth state conflicts.
-        const userCredential = await createUserWithEmailAndPassword(auth, contact.email, password);
-        const user = userCredential.user;
+        // This API call needs to happen in a secure environment.
+        // We'll call a Next.js API route that uses the Firebase Admin SDK.
+        const response = await fetch('/api/create-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                email: contact.email, 
+                password: password, 
+                name: contact.name,
+                roleId: studentRole.id 
+            }),
+        });
 
-        const newUserDoc: Omit<Employee, "id" | "role"> = {
-            name: contact.name,
-            email: contact.email,
-            roleId: studentRole.id,
-            assignedCourses: [],
-        };
-        
-        await setDoc(doc(db, "users", user.uid), newUserDoc);
-        await updateDoc(doc(db, "contacts", contact.id), { userId: user.uid });
-        
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || "Falha ao criar usuário");
+        }
+
+        // Update the contact document with the new user's UID
+        await updateContact(contact.id, { userId: result.uid });
+
     } catch (error: any) {
-        // Handle specific Firebase Auth errors
-        if (error.code === 'auth/email-already-in-use') {
-            throw new Error('Este email já está sendo usado por outro usuário.');
-        }
-        if (error.code === 'auth/weak-password') {
-            throw new Error('A senha é muito fraca. Tente uma senha mais forte.');
-        }
         console.error("Error creating student from contact:", error);
         throw new Error(error.message || 'Falha ao criar o acesso de aluno.');
     }
@@ -359,23 +350,25 @@ export const addFollowUp = async (onboarding: Onboarding) => {
     };
     return addDoc(collection(db, "followUps"), newFollowUp);
 };
+
 export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
-    let q = query(collection(db, "followUps"), orderBy("createdAt", "desc"));
+    const followUpsCol = collection(db, "followUps");
+    let followUpsQuery;
+
     if (userId) {
-        // This assumes the student's UID is stored as the contactId for follow-ups.
-        // We might need to adjust this logic if a student's own user record is what we need to query against.
-        // For now, let's assume the `contactId` in `followUps` matches the `user.uid` for students.
-        const userDocRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-            q = query(q, where("contactId", "==", userId));
-        } else {
-             // If no user doc found, maybe they are a legacy contact. This logic might need refinement.
-             // For now, return no follow-ups if the user doc doesn't exist.
-            return [];
-        }
+        // Query for a specific student's follow-ups.
+        // A student's contactId is their UID in the users collection.
+        followUpsQuery = query(
+            followUpsCol,
+            where("contactId", "==", userId),
+            orderBy("createdAt", "desc")
+        );
+    } else {
+        // Query for all follow-ups (for employees).
+        followUpsQuery = query(followUpsCol, orderBy("createdAt", "desc"));
     }
-    const snapshot = await getDocs(q);
+
+    const snapshot = await getDocs(followUpsQuery);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FollowUp));
 };
 
