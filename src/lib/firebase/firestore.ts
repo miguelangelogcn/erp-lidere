@@ -1,5 +1,6 @@
 
 
+
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
 import { app } from "./client";
 
@@ -338,12 +339,21 @@ export const startOnboarding = async (contact: Contact, product: Product) => {
 export const updateOnboarding = (id: string, data: Partial<Onboarding>) => updateDoc(doc(db, "onboardings", id), data);
 
 // Follow-ups
-export const addFollowUp = async (onboarding: Onboarding) => {
+export const addFollowUp = async (contactDocId: string, studentUserId: string, productId: string) => {
+    const contactRef = doc(db, 'contacts', contactDocId);
+    const productRef = doc(db, 'products', productId);
+
+    const [contactSnap, productSnap] = await Promise.all([getDoc(contactRef), getDoc(productRef)]);
+
+    if (!contactSnap.exists() || !productSnap.exists()) {
+        throw new Error("Contact or Product not found for creating follow-up.");
+    }
+
     const newFollowUp: Omit<FollowUp, "id"> = {
-        contactId: onboarding.contactId,
-        contactName: onboarding.contactName,
-        productId: onboarding.productId,
-        productName: onboarding.productName,
+        contactId: studentUserId, // Use the student's auth UID
+        contactName: contactSnap.data().name,
+        productId: productId,
+        productName: productSnap.data().name,
         createdAt: serverTimestamp(),
     };
     return addDoc(collection(db, "followUps"), newFollowUp);
@@ -354,18 +364,14 @@ export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
     let followUpsQuery;
 
     if (userId) {
-        const userDocRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userDocRef);
-        const contactId = userDoc.exists() ? userDoc.id : null;
-
-        if (!contactId) return [];
-
+        // For students, query where contactId (which is their UID) matches.
         followUpsQuery = query(
             followUpsCol,
-            where("contactId", "==", contactId),
+            where("contactId", "==", userId),
             orderBy("createdAt", "desc")
         );
     } else {
+        // For employees, fetch all follow-ups.
         followUpsQuery = query(followUpsCol, orderBy("createdAt", "desc"));
     }
 
@@ -487,3 +493,6 @@ export const systemPages = [
     { id: "financeiro", label: "Financeiro" },
     { id: "vendas", label: "Vendas" },
 ];
+
+// Re-export necessary functions for client-side usage
+export { getDoc, doc };

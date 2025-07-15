@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,7 +14,10 @@ import {
   getContacts,
   getProducts,
   updateOnboarding,
-  addFollowUp
+  addFollowUp,
+  getDoc,
+  doc,
+  db,
 } from "@/lib/firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KanbanColumn } from "./kanban-column";
@@ -98,22 +102,33 @@ export function OnboardingClient() {
   const handleFinishConfirmation = async () => {
     if (!onboardingToFinish) return;
     const originalOnboardings = [...onboardings];
-
-    // Optimistic update
-    setOnboardings(onboardings.map(o => o.id === onboardingToFinish.id ? { ...o, status: 'Feito' } : o));
+    
     setIsConfirmModalOpen(false);
 
     try {
+        // Fetch the contact to get the userId
+        const contactRef = doc(db, 'contacts', onboardingToFinish.contactId);
+        const contactSnap = await getDoc(contactRef);
+
+        if (!contactSnap.exists() || !contactSnap.data()?.userId) {
+            throw new Error("O contato associado não é um aluno com acesso ao sistema.");
+        }
+        const studentUserId = contactSnap.data()?.userId;
+
+        // Optimistic update UI
+        setOnboardings(onboardings.map(o => o.id === onboardingToFinish.id ? { ...o, status: 'Feito' } : o));
+
         await updateOnboarding(onboardingToFinish.id, { status: 'Feito' });
-        await addFollowUp(onboardingToFinish);
+        await addFollowUp(onboardingToFinish.contactId, studentUserId, onboardingToFinish.productId);
         toast({ title: "Onboarding Concluído!", description: "Um novo registro de acompanhamento foi criado." });
-    } catch (error) {
+    } catch (error: any) {
         setOnboardings(originalOnboardings);
-        toast({ variant: "destructive", title: "Erro", description: "Não foi possível finalizar o onboarding." });
+        toast({ variant: "destructive", title: "Erro", description: error.message || "Não foi possível finalizar o onboarding." });
     } finally {
         setOnboardingToFinish(null);
     }
   };
+
 
   const openDetailsModal = (onboarding: Onboarding) => {
     if (onboarding.status !== 'Fazendo') {
