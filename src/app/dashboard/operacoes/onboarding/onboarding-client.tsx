@@ -14,7 +14,7 @@ import {
   getContacts,
   getProducts,
   updateOnboarding,
-  addFollowUp,
+  addFollowUpFromOnboarding,
   getDoc,
   doc,
   db,
@@ -106,7 +106,6 @@ export function OnboardingClient() {
     setIsConfirmModalOpen(false);
 
     try {
-        // Fetch the contact to get the userId
         const contactRef = doc(db, 'contacts', onboardingToFinish.contactId);
         const contactSnap = await getDoc(contactRef);
 
@@ -115,11 +114,10 @@ export function OnboardingClient() {
         }
         const studentUserId = contactSnap.data()?.userId;
 
-        // Optimistic update UI
         setOnboardings(onboardings.map(o => o.id === onboardingToFinish.id ? { ...o, status: 'Feito' } : o));
 
         await updateOnboarding(onboardingToFinish.id, { status: 'Feito' });
-        await addFollowUp(onboardingToFinish.contactId, studentUserId, onboardingToFinish.productId);
+        await addFollowUpFromOnboarding(onboardingToFinish.contactId, studentUserId, onboardingToFinish.productId);
         toast({ title: "Onboarding Concluído!", description: "Um novo registro de acompanhamento foi criado." });
     } catch (error: any) {
         setOnboardings(originalOnboardings);

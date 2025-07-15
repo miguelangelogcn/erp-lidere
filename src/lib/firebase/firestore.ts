@@ -1,6 +1,7 @@
 
 
 
+
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
 import { app } from "./client";
 
@@ -97,7 +98,7 @@ export interface Onboarding {
 
 export interface FollowUp {
     id: string;
-    contactId: string;
+    contactId: string; // This is the student's auth UID
     contactName: string;
     productId: string;
     productName: string;
@@ -203,6 +204,13 @@ export const addContact = (contact: Omit<Contact, "id" | "userId">) => addDoc(co
 export const updateContact = (id: string, contact: Partial<Contact>) => updateDoc(doc(db, "contacts", id), contact);
 export const deleteContact = (id: string) => deleteDoc(doc(db, "contacts", id));
 
+export const getStudentsFromContacts = async (): Promise<Contact[]> => {
+    const contactsCol = collection(db, "contacts");
+    const q = query(contactsCol, where("userId", "!=", ""));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
+};
+
 
 export const createStudentFromContact = async (contact: Contact, password: string): Promise<void> => {
     try {
@@ -212,8 +220,6 @@ export const createStudentFromContact = async (contact: Contact, password: strin
             throw new Error("Cargo 'Student' não encontrado. Crie o cargo antes de continuar.");
         }
 
-        // This API call needs to happen in a secure environment.
-        // We'll call a Next.js API route that uses the Firebase Admin SDK.
         const response = await fetch('/api/create-user', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -229,8 +235,6 @@ export const createStudentFromContact = async (contact: Contact, password: strin
         if (!response.ok) {
             throw new Error(result.error || "Falha ao criar usuário");
         }
-
-        // Update the contact document with the new user's UID
         await updateContact(contact.id, { userId: result.uid });
 
     } catch (error: any) {
@@ -339,7 +343,7 @@ export const startOnboarding = async (contact: Contact, product: Product) => {
 export const updateOnboarding = (id: string, data: Partial<Onboarding>) => updateDoc(doc(db, "onboardings", id), data);
 
 // Follow-ups
-export const addFollowUp = async (contactDocId: string, studentUserId: string, productId: string) => {
+export const addFollowUpFromOnboarding = async (contactDocId: string, studentUserId: string, productId: string) => {
     const contactRef = doc(db, 'contacts', contactDocId);
     const productRef = doc(db, 'products', productId);
 
@@ -348,12 +352,22 @@ export const addFollowUp = async (contactDocId: string, studentUserId: string, p
     if (!contactSnap.exists() || !productSnap.exists()) {
         throw new Error("Contact or Product not found for creating follow-up.");
     }
-
-    const newFollowUp: Omit<FollowUp, "id"> = {
-        contactId: studentUserId, // Use the student's auth UID
+    const newFollowUpData: Omit<FollowUp, "id"> = {
+        contactId: studentUserId,
         contactName: contactSnap.data().name,
         productId: productId,
         productName: productSnap.data().name,
+        createdAt: serverTimestamp(),
+    };
+    return addDoc(collection(db, "followUps"), newFollowUpData);
+};
+
+export const createFollowUp = async (data: { studentUserId: string, contactName: string, productId: string, productName: string }) => {
+    const newFollowUp: Omit<FollowUp, "id"> = {
+        contactId: data.studentUserId,
+        contactName: data.contactName,
+        productId: data.productId,
+        productName: data.productName,
         createdAt: serverTimestamp(),
     };
     return addDoc(collection(db, "followUps"), newFollowUp);
@@ -364,14 +378,12 @@ export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
     let followUpsQuery;
 
     if (userId) {
-        // For students, query where contactId (which is their UID) matches.
         followUpsQuery = query(
             followUpsCol,
             where("contactId", "==", userId),
             orderBy("createdAt", "desc")
         );
     } else {
-        // For employees, fetch all follow-ups.
         followUpsQuery = query(followUpsCol, orderBy("createdAt", "desc"));
     }
 
@@ -465,7 +477,6 @@ export const getUserProgress = async (userId: string): Promise<UserProgress> => 
         return {};
     }
     const data = progressDoc.data();
-    // Filter out any potential non-boolean values if the data is not clean
     const cleanProgress: UserProgress = {};
     for (const key in data) {
         if (typeof data[key] === 'boolean') {
