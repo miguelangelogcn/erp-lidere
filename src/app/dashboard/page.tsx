@@ -6,7 +6,7 @@ export default function DashboardPage() {
       <h1 className="font-headline text-3xl font-bold tracking-tight">Dashboard</h1>
       <Card>
         <CardHeader>
-          <CardTitle>Bem-vindo ao Central Hub!</CardTitle>
+          <CardTitle>Bem-vindo à Lidere University!</CardTitle>
           <CardDescription>
             Este é o seu painel de controle. Navegue pelo menu lateral para acessar as diferentes seções.
           </CardDescription>

@@ -51,7 +51,7 @@ export default function LoginPage() {
               <Zap className="h-8 w-8 text-primary" />
             </div>
             <CardTitle className="font-headline text-3xl font-bold tracking-tight">
-              Central Hub
+              Lidere University
             </CardTitle>
             <CardDescription>
               Bem-vindo! Faça login para continuar.

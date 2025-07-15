@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthContextProvider } from "@/hooks/use-auth";
 
 export const metadata: Metadata = {
-  title: "Central Hub",
-  description: "Plataforma Central Hub",
+  title: "Lidere University",
+  description: "Plataforma Lidere University",
 };
 
 export default function RootLayout({

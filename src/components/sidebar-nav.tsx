@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -84,7 +83,7 @@ export function SidebarNav() {
        <div className="flex h-14 items-center border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Zap className="h-6 w-6 text-primary" />
-          <span className="">Central Hub</span>
+          <span className="">Lidere University</span>
         </Link>
       </div>
       <nav className="flex-1 space-y-1 p-2">
