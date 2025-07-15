@@ -2,6 +2,7 @@
 
 
 
+
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
 import { app } from "./client";
 
@@ -390,6 +391,25 @@ export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
     const snapshot = await getDocs(followUpsQuery);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FollowUp));
 };
+
+export const deleteFollowUp = async (followUpId: string) => {
+    const batch = writeBatch(db);
+    
+    // Delete the main document
+    const followUpRef = doc(db, "followUps", followUpId);
+    batch.delete(followUpRef);
+
+    // Delete subcollections
+    const subcollections = ["mentorships", "actionPlanTasks"];
+    for (const sub of subcollections) {
+        const subcollectionRef = collection(db, "followUps", followUpId, sub);
+        const snapshot = await getDocs(subcollectionRef);
+        snapshot.forEach(doc => batch.delete(doc.ref));
+    }
+
+    await batch.commit();
+};
+
 
 
 // Follow-up Subcollections

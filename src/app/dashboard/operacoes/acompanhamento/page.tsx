@@ -7,16 +7,21 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { FollowUp, getFollowUps } from '@/lib/firebase/firestore';
+import { FollowUp, getFollowUps, deleteFollowUp } from '@/lib/firebase/firestore';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Trash, Loader2 } from 'lucide-react';
 import { AddFollowUpModal } from './add-follow-up-modal';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function AcompanhamentoPage() {
     const [followUps, setFollowUps] = useState<FollowUp[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+    const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
     const { toast } = useToast();
     const { user } = useAuth();
 
@@ -36,6 +41,29 @@ export default function AcompanhamentoPage() {
     useEffect(() => {
         fetchData();
     }, [user, toast]);
+    
+    const handleDeleteClick = (e: React.MouseEvent, followUp: FollowUp) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setSelectedFollowUp(followUp);
+        setIsDeleteAlertOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!selectedFollowUp) return;
+        setDeleteLoading(true);
+        try {
+            await deleteFollowUp(selectedFollowUp.id);
+            toast({ title: 'Sucesso', description: 'Acompanhamento excluído.' });
+            fetchData();
+            setIsDeleteAlertOpen(false);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível excluir o acompanhamento.' });
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
+
 
     return (
         <div className="space-y-4">
@@ -54,9 +82,9 @@ export default function AcompanhamentoPage() {
             ) : followUps.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {followUps.map(item => (
-                        <Link key={item.id} href={`/dashboard/operacoes/acompanhamento/${item.id}`} className="block h-full">
-                            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                                <CardHeader>
+                        <Card key={item.id} className="hover:shadow-lg transition-shadow flex flex-col">
+                            <Link href={`/dashboard/operacoes/acompanhamento/${item.id}`} className="flex-grow">
+                                <CardHeader className="flex-row items-start justify-between">
                                     <CardTitle>{item.contactName}</CardTitle>
                                 </CardHeader>
                                 <CardContent>
@@ -65,8 +93,24 @@ export default function AcompanhamentoPage() {
                                         Iniciado em: {item.createdAt ? format(item.createdAt.toDate(), 'dd/MM/yyyy') : '...'}
                                     </p>
                                 </CardContent>
-                            </Card>
-                        </Link>
+                            </Link>
+                             <div className="p-4 pt-0">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0 ml-auto flex">
+                                            <span className="sr-only">Abrir menu</span>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={(e) => handleDeleteClick(e, item)} className="text-destructive focus:text-destructive">
+                                            <Trash className="mr-2 h-4 w-4" />
+                                            Excluir
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </Card>
                     ))}
                 </div>
             ) : (
@@ -82,6 +126,24 @@ export default function AcompanhamentoPage() {
                     onFollowUpCreated={fetchData}
                 />
             )}
+            
+            <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. Isso excluirá permanentemente o acompanhamento e todos os seus dados.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteConfirm} disabled={deleteLoading}>
+                             {deleteLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Confirmar Exclusão
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
