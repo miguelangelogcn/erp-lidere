@@ -1,16 +1,19 @@
-
 "use client";
 
+import { useParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentMentorshipsTab } from "./mentorships-tab";
 import { StudentActionPlanTab } from "./action-plan-tab";
 
-interface FollowUpClientProps {
-    params: { id: string }
-}
+export default function StudentFollowUpDetailsPage() {
+    const params = useParams();
+    const followUpId = params.id as string;
 
-export default function StudentFollowUpDetailsPage({ params }: FollowUpClientProps) {
-    const followUpId = params.id;
+    if (!followUpId) {
+        // You can render a loading state or a message here
+        return <div>Carregando...</div>;
+    }
+
     return (
         <div className="space-y-4">
              <h1 className="font-headline text-3xl font-bold tracking-tight">Detalhes do Acompanhamento</h1>
@@ -29,5 +32,3 @@ export default function StudentFollowUpDetailsPage({ params }: FollowUpClientPro
         </div>
     );
 }
-
-    
