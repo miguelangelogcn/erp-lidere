@@ -18,7 +18,7 @@ export default function StudentAcompanhamentoPage() {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user) return;
+            if (!user || !user.uid) return; // Don't fetch until user is loaded
             setLoading(true);
             try {
                 // Pass user.uid to get only this student's follow-ups
@@ -48,8 +48,10 @@ export default function StudentAcompanhamentoPage() {
                             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                                 <CardHeader>
                                     <CardTitle>{item.productName}</CardTitle>
+
                                 </CardHeader>
                                 <CardContent>
+                                     <p className="text-sm text-muted-foreground">Iniciado por: {item.contactName}</p>
                                     <p className="text-sm text-muted-foreground mt-2">
                                         Iniciado em: {item.createdAt ? format(item.createdAt.toDate(), 'dd/MM/yyyy') : '...'}
                                     </p>
