@@ -312,6 +312,12 @@ export const addDeal = (deal: Omit<Deal, "id">) => addDoc(collection(db, "deals"
 export const updateDeal = (id: string, deal: Partial<Deal>) => updateDoc(doc(db, "deals", id), deal);
 export const deleteDeal = (id: string) => deleteDoc(doc(db, "deals", id));
 
+export const getAllDeals = async (): Promise<Deal[]> => {
+    const dealsCol = collection(db, "deals");
+    const snapshot = await getDocs(dealsCol);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deal));
+};
+
 // Notes CRUD (Subcollection)
 export const getNotes = (dealId: string, callback: (notes: Note[]) => void) => {
     const notesCol = collection(db, "deals", dealId, "notes");
@@ -543,6 +549,13 @@ export const updateFinancialAccount = (id: string, account: Partial<Omit<Financi
     return updateDoc(doc(db, "financialAccounts", id), account);
 };
 export const deleteFinancialAccount = (id: string) => deleteDoc(doc(db, "financialAccounts", id));
+
+export const getPayableAccounts = async (): Promise<FinancialAccount[]> => {
+    const accountsCol = collection(db, "financialAccounts");
+    const q = query(accountsCol, where("type", "==", "payable"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinancialAccount));
+};
 
 // Financial Debts CRUD
 export const getFinancialDebts = async (): Promise<FinancialDebt[]> => {

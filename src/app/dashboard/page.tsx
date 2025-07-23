@@ -1,20 +1,18 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+
+"use client";
+
+import { SalesFunnelChart } from './sales-funnel-chart';
+import { ExpensesByCategoryChart } from './expenses-by-category-chart';
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <h1 className="font-headline text-3xl font-bold tracking-tight">Dashboard</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Bem-vindo à Lidere University!</CardTitle>
-          <CardDescription>
-            Este é o seu painel de controle. Navegue pelo menu lateral para acessar as diferentes seções.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>As funcionalidades de cada seção serão implementadas em breve.</p>
-        </CardContent>
-      </Card>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SalesFunnelChart />
+        <ExpensesByCategoryChart />
+      </div>
     </div>
   );
 }
