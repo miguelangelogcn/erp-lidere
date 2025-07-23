@@ -218,7 +218,12 @@ export function PipelinesClient() {
                         return (
                             <KanbanColumn key={stage} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
                                 {dealsInStage.map((deal) => (
-                                    <DealCard key={deal.id} deal={deal} onClick={() => handleCardClick(deal)} />
+                                    <DealCard 
+                                        key={deal.id} 
+                                        deal={deal} 
+                                        onClick={() => handleCardClick(deal)}
+                                        isSelected={deal.id === selectedDealDetails?.id} 
+                                    />
                                 ))}
                             </KanbanColumn>
                         );
@@ -283,5 +288,3 @@ export function PipelinesClient() {
     </>
   );
 }
-
-    
