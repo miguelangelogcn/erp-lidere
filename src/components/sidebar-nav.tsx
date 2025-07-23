@@ -81,7 +81,7 @@ export function SidebarNav() {
 
   return (
     <div className="flex h-full flex-col">
-       <div className="flex h-14 items-center border-b px-4">
+       <div className="flex h-14 items-center px-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Zap className="h-6 w-6 text-primary" />
           <span className="">Lidere University</span>
