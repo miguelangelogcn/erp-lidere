@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,49 +18,90 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-const formSchema = z.object({
+
+const formSchema = (channel: 'email' | 'whatsapp') => z.object({
   recipients: z.array(z.string()).min(1, "Selecione pelo menos um destinatário."),
   subject: z.string().optional(),
   message: z.string().min(1, "A mensagem é obrigatória."),
+}).refine(data => {
+    if (channel === 'email') {
+        return !!data.subject && data.subject.trim().length > 0;
+    }
+    return true;
+}, {
+    message: "O assunto é obrigatório para e-mails.",
+    path: ["subject"],
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof formSchema>>;
 
 export function DisparosClient() {
-  const [activeTab, setActiveTab] = useState("email");
+  const [activeTab, setActiveTab] = useState<'email' | 'whatsapp'>("email");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema(activeTab)),
     defaultValues: { recipients: [], subject: "", message: "" },
   });
+  
+  // Re-run validation when tab changes
+  useEffect(() => {
+    form.trigger();
+  }, [activeTab, form]);
+
 
   useEffect(() => {
     const fetchContacts = async () => {
-      const contactsData = await getContacts();
-      setContacts(contactsData);
+      try {
+        const contactsData = await getContacts();
+        setContacts(contactsData);
+      } catch (error) {
+         toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível carregar os contatos.' });
+      }
     };
     fetchContacts();
-  }, []);
+  }, [toast]);
   
   useEffect(() => {
-    form.reset();
+    form.reset({ recipients: [], subject: "", message: "" });
   }, [activeTab, form]);
 
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true);
-    console.log("Sending broadcast:", { type: activeTab, ...values });
-    // TODO: Implement actual email/whatsapp sending logic
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    toast({
-      title: "Disparo enviado!",
-      description: `Sua mensagem para ${values.recipients.length} contato(s) foi enviada.`,
-    });
-    setLoading(false);
-    form.reset();
+    try {
+        const response = await fetch('/api/marketing/disparos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...values,
+                channel: activeTab
+            }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Falha ao enviar o disparo.');
+        }
+        
+        toast({
+            title: "Disparo enviado!",
+            description: `Sua mensagem para ${values.recipients.length} contato(s) foi enviada com sucesso.`,
+        });
+        form.reset();
+
+    } catch (error: any) {
+         toast({
+            variant: 'destructive',
+            title: "Erro no Disparo",
+            description: error.message,
+        });
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (
@@ -69,7 +111,7 @@ export function DisparosClient() {
         <CardDescription>Crie sua mensagem e selecione os destinatários.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'email' | 'whatsapp')}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="email">E-mail</TabsTrigger>
             <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
@@ -114,7 +156,7 @@ export function DisparosClient() {
                                   }}
                                 >
                                   <Check className={cn("mr-2 h-4 w-4", (field.value || []).includes(contact.id) ? "opacity-100" : "opacity-0")} />
-                                  {contact.name} ({contact.email})
+                                  {contact.name} ({activeTab === 'email' ? contact.email : contact.phone})
                                 </CommandItem>
                               ))}
                             </CommandGroup>
