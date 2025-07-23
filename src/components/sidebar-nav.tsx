@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -22,8 +21,11 @@ import {
   User,
   Wallet,
   Landmark,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
 
 const employeeNavItems = [
   { href: "/dashboard", label: "Relatórios", icon: LayoutDashboard },
@@ -77,25 +79,32 @@ const studentNavItems = [
     { href: "/dashboard/acompanhamento", label: "Acompanhamento", icon: ClipboardCheck },
 ];
 
-export function SidebarNav() {
+interface SidebarNavProps {
+    isCollapsed: boolean;
+    setIsCollapsed: (value: boolean) => void;
+}
+
+export function SidebarNav({ isCollapsed, setIsCollapsed }: SidebarNavProps) {
   const pathname = usePathname();
   const { userRole } = useAuth();
   
   const navItems = userRole === 'student' ? studentNavItems : employeeNavItems;
 
   return (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-       <div className="flex h-14 items-center border-b border-sidebar-accent/50 px-4">
+    <div className="relative flex h-full flex-col bg-sidebar text-sidebar-foreground p-2">
+       <div className={`flex h-14 items-center border-b border-sidebar-accent/50 ${isCollapsed ? 'justify-center' : 'px-4'}`}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-sidebar-foreground">
           <Zap className="h-6 w-6 text-primary" />
-          <span className="">Lidere University</span>
+          <span className={cn(isCollapsed && 'hidden')}>Lidere University</span>
         </Link>
       </div>
       <nav className="flex-1 space-y-1 p-2">
         {navItems.map((item) => (
           'subItems' in item ? (
             <div key={item.id} className="space-y-1">
-              <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider">{item.label}</h4>
+              <h4 className={cn("px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider", isCollapsed && 'text-center')}>
+                {isCollapsed ? item.label.substring(0,3) : item.label}
+              </h4>
               <ul className="space-y-1">
                 {item.subItems.map((subItem) => (
                   <li key={subItem.href}>
@@ -104,11 +113,12 @@ export function SidebarNav() {
                       className={cn(
                         "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         (pathname === subItem.href || pathname.startsWith(subItem.href + '/'))
-                         ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground"
+                         ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground",
+                         isCollapsed && 'justify-center'
                       )}
                     >
                       <subItem.icon className="h-4 w-4" />
-                      {subItem.label}
+                      <span className={cn(isCollapsed && 'hidden')}>{subItem.label}</span>
                     </Link>
                   </li>
                 ))}
@@ -120,15 +130,21 @@ export function SidebarNav() {
               href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                pathname === item.href ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground"
+                pathname === item.href ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground",
+                isCollapsed && 'justify-center'
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              <span className={cn(isCollapsed && 'hidden')}>{item.label}</span>
             </Link>
           )
         ))}
       </nav>
+      <div className="mt-auto p-2">
+          <Button variant="ghost" className="w-full justify-center" onClick={() => setIsCollapsed(!isCollapsed)}>
+              {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
+          </Button>
+      </div>
     </div>
   );
 }
