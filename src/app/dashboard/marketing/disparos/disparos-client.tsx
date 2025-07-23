@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 
 const formSchema = (channel: 'email' | 'whatsapp') => z.object({
-  recipients: z.array(z.string()).min(1, "Selecione pelo menos um destinatário."),
+  contactIds: z.array(z.string()).min(1, "Selecione pelo menos um destinatário."),
   subject: z.string().optional(),
   message: z.string().min(1, "A mensagem é obrigatória."),
 }).refine(data => {
@@ -43,7 +43,7 @@ export function DisparosClient() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema(activeTab)),
-    defaultValues: { recipients: [], subject: "", message: "" },
+    defaultValues: { contactIds: [], subject: "", message: "" },
   });
   
   // Re-run validation when tab changes
@@ -65,7 +65,7 @@ export function DisparosClient() {
   }, [toast]);
   
   useEffect(() => {
-    form.reset({ recipients: [], subject: "", message: "" });
+    form.reset({ contactIds: [], subject: "", message: "" });
   }, [activeTab, form]);
 
 
@@ -89,7 +89,7 @@ export function DisparosClient() {
         
         toast({
             title: "Disparo enviado!",
-            description: `Sua mensagem para ${values.recipients.length} contato(s) foi enviada com sucesso.`,
+            description: `Sua mensagem para ${values.contactIds.length} contato(s) foi enviada com sucesso.`,
         });
         form.reset();
 
@@ -120,7 +120,7 @@ export function DisparosClient() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-6">
               <FormField
                 control={form.control}
-                name="recipients"
+                name="contactIds"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Destinatários</FormLabel>
