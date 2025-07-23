@@ -19,6 +19,7 @@ import {
   PlaySquare,
   GraduationCap,
   User,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +55,7 @@ const employeeNavItems = [
     id: "financeiro",
     label: "Financeiro", 
     subItems: [
-       { href: "/dashboard/financeiro", label: "Visão Geral", icon: Banknote },
+       { href: "/dashboard/financeiro/contas", label: "Contas", icon: Wallet },
     ]
   },
   { 

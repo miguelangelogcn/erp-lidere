@@ -1,11 +1,4 @@
-
-
-
-
-
-
-
-import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, serverTimestamp, orderBy, onSnapshot, writeBatch, documentId, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { app } from "./client";
 
 export const db = getFirestore(app);
@@ -150,6 +143,20 @@ export interface Lesson {
 // User Progress Type
 export interface UserProgress {
     [lessonId: string]: boolean; // { lessonId: true }
+}
+
+export type FinancialAccountType = 'payable' | 'receivable';
+export type RecurrenceType = 'none' | 'weekly' | 'monthly' | 'yearly';
+
+export interface FinancialAccount {
+    id: string;
+    description: string;
+    value: number;
+    dueDate: Timestamp;
+    category: string;
+    recurrence: RecurrenceType;
+    type: FinancialAccountType;
+    createdAt: Timestamp;
 }
 
 
@@ -399,11 +406,9 @@ export const getFollowUps = async (userId?: string): Promise<FollowUp[]> => {
 export const deleteFollowUp = async (followUpId: string) => {
     const batch = writeBatch(db);
     
-    // Delete the main document
     const followUpRef = doc(db, "followUps", followUpId);
     batch.delete(followUpRef);
 
-    // Delete subcollections
     const subcollections = ["mentorships", "actionPlanTasks"];
     for (const sub of subcollections) {
         const subcollectionRef = collection(db, "followUps", followUpId, sub);
@@ -515,6 +520,20 @@ export const updateUserProgress = async (userId: string, lessonId: string, compl
     return setDoc(progressRef, { [lessonId]: completed }, { merge: true });
 };
 
+// Financial Accounts CRUD
+export const getFinancialAccounts = async (type: FinancialAccountType): Promise<FinancialAccount[]> => {
+    const accountsCol = collection(db, "financialAccounts");
+    const q = query(accountsCol, where("type", "==", type), orderBy("dueDate", "asc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinancialAccount));
+};
+export const addFinancialAccount = (account: Omit<FinancialAccount, "id" | "createdAt">) => {
+    return addDoc(collection(db, "financialAccounts"), { ...account, createdAt: serverTimestamp() });
+};
+export const updateFinancialAccount = (id: string, account: Partial<Omit<FinancialAccount, "id" | "createdAt">>) => {
+    return updateDoc(doc(db, "financialAccounts", id), account);
+};
+export const deleteFinancialAccount = (id: string) => deleteDoc(doc(db, "financialAccounts", id));
 
 
 // System Pages for Permissions
@@ -530,4 +549,4 @@ export const systemPages = [
 ];
 
 // Re-export necessary functions for client-side usage
-export { getDoc, doc };
+export { getDoc, doc, Timestamp };
