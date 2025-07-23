@@ -4,22 +4,23 @@
 
 @layer base {
   :root {
-    --background: 240 10% 99%; /* Fundo principal da aplicação */
-    --foreground: 240 5.3% 16.1%; /* Texto principal */
+    /* Fundo e Texto Principal */
+    --background: 240 10% 99%; /* Fundo principal da aplicação (off-white) */
+    --foreground: 240 5.3% 16.1%; /* Texto principal (quase preto) */
 
     /* Cards e Popovers */
-    --card: 0 0% 100%; /* Fundo dos cards */
+    --card: 0 0% 100%; /* Fundo dos cards (branco) */
     --card-foreground: 240 5.3% 16.1%; /* Texto dos cards */
     --popover: 0 0% 100%; /* Fundo de popovers */
     --popover-foreground: 240 5.3% 16.1%; /* Texto de popovers */
 
-    /* Cores de Destaque (Primária, Secundária, etc.) */
-    --primary: 15 90% 55%; /* Laranja Vibrante */
-    --primary-foreground: 0 0% 100%; /* Texto sobre a cor primária */
-    --secondary: 240 4.8% 95.9%; /* Cor secundária */
+    /* Cores de Destaque */
+    --primary: 45 45% 66%; /* Cor #D4BC7B - Cor principal para botões, links e destaques */
+    --primary-foreground: 240 6% 12%; /* Texto sobre a cor primária (preto/cinza escuro) */
+    --secondary: 240 4.8% 95.9%; /* Cor secundária para elementos de menor importância */
     --secondary-foreground: 240 5.9% 10%; /* Texto sobre a cor secundária */
-    --muted: 240 4.8% 95.9%; /* Cor para elementos "silenciados" ou de fundo sutil */
-    --muted-foreground: 240 3.8% 46.1%; /* Texto sobre a cor "muted" */
+    --muted: 240 4.8% 95.9%; /* Cor para elementos "silenciados" ou fundos sutis */
+    --muted-foreground: 240 3.8% 46.1%; /* Texto sobre a cor "muted" (cinza) */
     --accent: 240 4.8% 95.9%; /* Cor de destaque para hovers e seleções */
     --accent-foreground: 240 5.9% 10%; /* Texto sobre a cor de destaque */
 
@@ -30,16 +31,16 @@
     /* Bordas e Inputs */
     --border: 240 5.9% 90%; /* Cor das bordas */
     --input: 240 5.9% 90%; /* Fundo dos campos de input */
-    --ring: 15 90% 55%; /* Cor do anel de foco */
-    
+    --ring: 45 45% 66%; /* Cor #D4BC7B - Cor do anel de foco */
+
     /* Raio da Borda */
     --radius: 0.5rem; /* Raio padrão para cantos arredondados */
 
     /* Estilos do Menu Lateral (Sidebar) */
-    --sidebar-background: 240 6% 12%; /* Cor de fundo do menu lateral */
-    --sidebar-foreground: 0 0% 80%; /* Cor do texto no menu lateral */
-    --sidebar-accent: 240 5% 20%; /* Cor de hover e do item ativo no menu */
-    --sidebar-accent-foreground: 0 0% 100%; /* Cor do texto no hover/item ativo */
+    --sidebar-background: 240 6% 12%; /* Cor de fundo do menu lateral (cinza bem escuro) */
+    --sidebar-foreground: 0 0% 80%; /* Cor do texto no menu lateral (cinza claro) */
+    --sidebar-accent: 240 5% 20%; /* Cor de hover e do item ativo no menu (cinza um pouco mais claro) */
+    --sidebar-accent-foreground: 0 0% 100%; /* Cor do texto no hover/item ativo (branco) */
   }
   
   .dark {
@@ -50,8 +51,8 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 6% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 231 48% 65%;
-    --primary-foreground: 0 0% 9%;
+    --primary: 45 45% 66%;
+    --primary-foreground: 240 6% 12%;
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 14.9%;
@@ -62,7 +63,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
-    --ring: 231 48% 65%;
+    --ring: 45 45% 66%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
