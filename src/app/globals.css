@@ -11,7 +11,7 @@
     /* Cards e Popovers */
     --card: hsl(0 0% 100%); /* Fundo dos cards */
     --card-foreground: hsl(240 5.3% 26.1%); /* Texto dos cards */
-    --popover: hsl(0 0% 100%); /* Fundo de popovers */
+    --popover: hsl(0, 100%, 50%); /* Fundo de popovers */
     --popover-foreground: hsl(240 5.3% 26.1%); /* Texto de popovers */
 
     /* Cores de Destaque (Primária, Secundária, etc.) */
