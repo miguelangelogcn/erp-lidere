@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,6 +22,7 @@ import {
 
 import { cn, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -64,17 +66,20 @@ export function AccountsClient() {
   const [selectedAccount, setSelectedAccount] = useState<FinancialAccount | null>(null);
   
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
 
   const fetchData = async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const data = await getFinancialAccounts(activeTab);
       setAccounts(data);
     } catch (error) {
+      console.error("Erro detalhado ao buscar contas:", error);
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar as contas." });
     } finally {
       setLoading(false);
@@ -83,7 +88,7 @@ export function AccountsClient() {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, [activeTab, user]);
 
   const handleOpenDialog = (account: FinancialAccount | null) => {
     setSelectedAccount(account);
