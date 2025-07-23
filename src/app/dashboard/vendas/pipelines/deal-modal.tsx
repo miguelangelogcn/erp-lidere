@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -95,21 +96,26 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
     if (deal) {
       form.reset(deal);
     } else {
+      // Find the first pipeline and its first stage for default values
+      const defaultPipeline = pipelines[0];
+      const defaultStage = defaultPipeline?.stages[0] || "";
       form.reset({
         title: "",
         value: 0,
-        pipelineId: pipelines[0]?.id || "",
-        stage: pipelines[0]?.stages[0] || "",
+        pipelineId: defaultPipeline?.id || "",
+        stage: defaultStage,
         contactId: "",
         ownerId: user?.uid || "",
       });
     }
-  }, [deal, pipelines, isOpen, user]);
+  }, [deal, pipelines, isOpen, user, form]);
 
   useEffect(() => {
     if (deal?.id) {
       const unsubscribe = getNotes(deal.id, setNotes);
       return () => unsubscribe();
+    } else {
+        setNotes([]);
     }
   }, [deal]);
 
@@ -180,18 +186,17 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
                 <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Título</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor (R$)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="pipelineId" render={({ field }) => (<FormItem><FormLabel>Pipeline</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{pipelines.map(p=>(<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={form.control} name="pipelineId" render={({ field }) => (<FormItem><FormLabel>Pipeline</FormLabel><Select onValueChange={(value) => { field.onChange(value); form.setValue('stage', pipelines.find(p=>p.id === value)?.stages[0] || '') }} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{pipelines.map(p=>(<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                   <FormField control={form.control} name="stage" render={({ field }) => (<FormItem><FormLabel>Estágio</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{stages.map(s=>(<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="contactId" render={({ field }) => (<FormItem><FormLabel>Contato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{contacts.map(c=>(<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
-                  <FormField control={form.control} name="ownerId" render={({ field }) => (<FormItem><FormLabel>Responsável</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{employees.map(e=>(<SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={form.control} name="contactId" render={({ field }) => (<FormItem><FormLabel>Contato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger></FormControl><SelectContent>{contacts.map(c=>(<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField control={form.control} name="ownerId" render={({ field }) => (<FormItem><FormLabel>Responsável</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger></FormControl><SelectContent>{employees.map(e=>(<SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="pt-4">
                     {deal && (
-                        <Button type="button" variant="destructive" onClick={() => setIsDeleteAlertOpen(true)} disabled={loading}><Trash className="mr-2 h-4 w-4" /> Excluir</Button>
+                        <Button type="button" variant="destructive" onClick={() => setIsDeleteAlertOpen(true)} disabled={loading} className="mr-auto"><Trash className="mr-2 h-4 w-4" /> Excluir</Button>
                     )}
-                    <div className="flex-grow" />
                     <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                     <Button type="submit" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button>
                 </DialogFooter>
@@ -215,6 +220,7 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
                                 <p className="text-xs text-muted-foreground mt-2">{note.author} - {note.createdAt ? format(note.createdAt, 'dd/MM/yyyy HH:mm') : '...'}</p>
                             </div>
                         ))}
+                         {notes.length === 0 && <p className="text-sm text-center text-muted-foreground pt-4">Nenhuma nota adicionada.</p>}
                     </div>
                 </ScrollArea>
             </div>
@@ -230,3 +236,5 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
     </Dialog>
   );
 }
+
+    

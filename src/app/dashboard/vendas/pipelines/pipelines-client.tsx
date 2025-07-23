@@ -149,6 +149,15 @@ export function PipelinesClient() {
   
   const onDealUpdated = () => {
     refreshDeals();
+    // also refresh details if the edited deal is the one being shown
+    if (dealForModal && selectedDealDetails && dealForModal.id === selectedDealDetails.id) {
+       const updatedDealData = deals.find(d => d.id === dealForModal.id);
+       if(updatedDealData) {
+         setSelectedDealDetails(updatedDealData);
+       } else { // if it was deleted
+         setSelectedDealDetails(null);
+       }
+    }
   }
 
   const handleCardClick = (deal: Deal) => {
@@ -161,7 +170,10 @@ export function PipelinesClient() {
         <div className="flex items-center gap-4">
           <Select
             value={selectedPipelineId ?? ""}
-            onValueChange={setSelectedPipelineId}
+            onValueChange={(value) => {
+              setSelectedPipelineId(value);
+              setSelectedDealDetails(null); // Deselect deal when changing pipeline
+            }}
             disabled={loading}
           >
             <SelectTrigger className="w-[280px]">
@@ -185,9 +197,9 @@ export function PipelinesClient() {
         <Button onClick={() => openDealModal(null)} disabled={!selectedPipelineId}>Adicionar Negociação</Button>
       </div>
       
-      <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-hidden">
+      <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-hidden">
         {/* Kanban Board Column */}
-        <div className="lg:col-span-2 overflow-x-auto h-full">
+        <div className="lg:col-span-2 xl:col-span-3 overflow-x-auto h-full">
             <DndContext onDragEnd={onDragEnd}>
                 <div className="flex-grow flex gap-4 pb-4 h-full">
                 {loading ? (
@@ -221,8 +233,8 @@ export function PipelinesClient() {
         </div>
         
         {/* Details Column */}
-        <div className="lg:col-span-1 h-full overflow-y-auto pr-2">
-            <Card className="h-full">
+        <div className="lg:col-span-1 xl:col-span-1 h-full overflow-y-auto pr-2">
+            <Card className="h-full sticky top-0">
                 <CardHeader>
                     <CardTitle>Detalhes da Negociação</CardTitle>
                 </CardHeader>
@@ -265,18 +277,11 @@ export function PipelinesClient() {
             pipelines={pipelines}
             contacts={contacts}
             employees={employees}
-            onDealUpdated={() => {
-                refreshDeals();
-                // also refresh details if the edited deal is the one being shown
-                if (dealForModal && selectedDealDetails && dealForModal.id === selectedDealDetails.id) {
-                  const updatedDeal = deals.find(d => d.id === dealForModal.id);
-                  if (updatedDeal) {
-                    setSelectedDealDetails(updatedDeal);
-                  }
-                }
-            }}
+            onDealUpdated={onDealUpdated}
         />
       )}
     </>
   );
 }
+
+    
