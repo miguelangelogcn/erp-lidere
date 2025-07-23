@@ -102,9 +102,11 @@ export function SidebarNav({ isCollapsed, setIsCollapsed }: SidebarNavProps) {
         {navItems.map((item) => (
           'subItems' in item ? (
             <div key={item.id} className="space-y-1">
-              <h4 className={cn("px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider", isCollapsed ? 'text-center' : '')}>
-                {isCollapsed ? item.label.substring(0,3) : item.label}
-              </h4>
+              {!isCollapsed && (
+                <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider">
+                  {item.label}
+                </h4>
+              )}
               <ul className="space-y-1">
                 {item.subItems.map((subItem) => (
                   <li key={subItem.href}>
