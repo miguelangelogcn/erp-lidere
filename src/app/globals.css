@@ -4,41 +4,54 @@
 
 @layer base {
   :root {
-    --background: hsl(0 0% 100%);
-    --foreground: hsl(240 5.3% 26.1%);
-    --card: hsl(0 0% 100%);
-    --card-foreground: hsl(240 5.3% 26.1%);
-    --popover: hsl(0 0% 100%);
-    --popover-foreground: hsl(240 5.3% 26.1%);
-    --primary: hsl(45 74% 47%);
-    --primary-foreground: hsl(222.2 84% 4.9%);
-    --secondary: hsl(0 0% 100%);
-    --secondary-foreground: hsl(240 5.9% 10%);
-    --muted: hsl(0 0% 100%);
-    --muted-foreground: hsl(240 3.8% 46.1%);
-    --accent: hsl(0 0% 100%);
-    --accent-foreground: hsl(240 5.9% 10%);
-    --destructive: hsl(0 84.2% 60.2%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(220 13% 91%);
-    --input: hsl(220 13% 91%);
-    --ring: hsl(45 74% 47%);
+    /* Cores Globais */
+    --background: hsl(0 0% 100%); /* Fundo principal da aplicação */
+    --foreground: hsl(240 5.3% 26.1%); /* Texto principal */
+
+    /* Cards e Popovers */
+    --card: hsl(0 0% 100%); /* Fundo dos cards */
+    --card-foreground: hsl(240 5.3% 26.1%); /* Texto dos cards */
+    --popover: hsl(0 0% 100%); /* Fundo de popovers */
+    --popover-foreground: hsl(240 5.3% 26.1%); /* Texto de popovers */
+
+    /* Cores de Destaque (Primária, Secundária, etc.) */
+    --primary: hsl(45 74% 47%); /* Cor primária para botões, links e elementos de destaque */
+    --primary-foreground: hsl(222.2 84% 4.9%); /* Texto sobre a cor primária */
+    --secondary: hsl(0 0% 100%); /* Cor secundária */
+    --secondary-foreground: hsl(240 5.9% 10%); /* Texto sobre a cor secundária */
+    --muted: hsl(0 0% 100%); /* Cor para elementos "silenciados" ou de fundo sutil */
+    --muted-foreground: hsl(240 3.8% 46.1%); /* Texto sobre a cor "muted" */
+    --accent: hsl(0 0% 100%); /* Cor de destaque para hovers e seleções */
+    --accent-foreground: hsl(240 5.9% 10%); /* Texto sobre a cor de destaque */
+
+    /* Cores de Ação Destrutiva */
+    --destructive: hsl(0 84.2% 60.2%); /* Cor para ações perigosas (ex: excluir) */
+    --destructive-foreground: hsl(0 0% 98%); /* Texto sobre a cor destrutiva */
+
+    /* Bordas e Inputs */
+    --border: hsl(220 13% 91%); /* Cor das bordas */
+    --input: hsl(220 13% 91%); /* Fundo dos campos de input */
+    --ring: hsl(45 74% 47%); /* Cor do anel de foco */
+
+    /* Cores para Gráficos */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: hsl(0, 0%, 29%);
-    --sidebar-foreground: hsl(240 5.3% 26.1%);
-    --sidebar-primary: hsl(231 48% 54%);
-    --sidebar-primary-foreground: hsl(0 0% 98%);
-    --sidebar-accent: hsl(51 25% 61%);
-    --sidebar-accent-foreground: hsl(240 5.9% 10%);
-    --sidebar-border: hsl(220 13% 91%);
-    --sidebar-ring: hsl(231 48% 54%);
+    
+    /* Raio da Borda */
+    --radius: 0.5rem; /* Raio padrão para cantos arredondados */
+
+    /* Estilos do Menu Lateral (Sidebar) */
+    --sidebar-background: hsl(0 0% 88%); /* Cor de fundo do menu lateral */
+    --sidebar-foreground: hsl(240 5.3% 26.1%); /* Cor do texto no menu lateral */
+    --sidebar-accent: hsl(51 25% 61%); /* Cor de hover e do item ativo no menu */
+    --sidebar-accent-foreground: hsl(240 5.9% 10%); /* Cor do texto no hover/item ativo */
   }
+  
   .dark {
+    /* As mesmas variáveis, mas para o tema escuro */
     --background: 240 6% 10%;
     --foreground: 0 0% 98%;
     --card: 240 6% 10%;
@@ -65,12 +78,8 @@
     --chart-5: 340 75% 55%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 231 48% 65%;
-    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 45 33% 78%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 231 48% 65%;
   }
 }
 
