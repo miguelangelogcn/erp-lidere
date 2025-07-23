@@ -92,7 +92,7 @@ export function SidebarNav({ isCollapsed, setIsCollapsed }: SidebarNavProps) {
 
   return (
     <div className="relative flex h-full flex-col bg-sidebar text-sidebar-foreground p-2">
-       <div className={`flex h-14 items-center border-b border-sidebar-accent/50 ${isCollapsed ? 'justify-center' : 'px-4'}`}>
+       <div className={cn("flex h-14 items-center border-b border-sidebar-accent/50", isCollapsed ? 'justify-center' : 'px-4')}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-sidebar-foreground">
           <Zap className="h-6 w-6 text-primary" />
           <span className={cn(isCollapsed && 'hidden')}>Lidere University</span>
@@ -102,7 +102,7 @@ export function SidebarNav({ isCollapsed, setIsCollapsed }: SidebarNavProps) {
         {navItems.map((item) => (
           'subItems' in item ? (
             <div key={item.id} className="space-y-1">
-              <h4 className={cn("px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider", isCollapsed && 'text-center')}>
+              <h4 className={cn("px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider", isCollapsed ? 'text-center' : '')}>
                 {isCollapsed ? item.label.substring(0,3) : item.label}
               </h4>
               <ul className="space-y-1">
