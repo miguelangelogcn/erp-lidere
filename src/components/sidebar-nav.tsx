@@ -98,9 +98,9 @@ export function SidebarNav() {
                     <Link
                       href={subItem.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         (pathname === subItem.href || pathname.startsWith(subItem.href + '/'))
-                         ? "bg-muted text-foreground" : ""
+                         ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
                       )}
                     >
                       <subItem.icon className="h-4 w-4" />
@@ -115,8 +115,8 @@ export function SidebarNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                pathname === item.href && "bg-muted text-foreground"
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                pathname === item.href && "bg-sidebar-accent text-sidebar-accent-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
