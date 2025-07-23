@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -8,6 +9,7 @@ import {
   CardTitle,
   CardContent,
   CardFooter,
+  CardDescription
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +48,8 @@ export function PipelinesClient() {
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [isPipelinesModalOpen, setIsPipelinesModalOpen] = useState(false);
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [dealForModal, setDealForModal] = useState<Deal | null>(null);
+  const [selectedDealDetails, setSelectedDealDetails] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
 
   const { toast } = useToast();
@@ -70,6 +73,10 @@ export function PipelinesClient() {
     try {
       const dealsData = await getDealsByPipeline(selectedPipelineId);
       setDeals(dealsData);
+      // Reset details view if the selected deal is not in the refreshed list
+      if (selectedDealDetails && !dealsData.find(d => d.id === selectedDealDetails.id)) {
+        setSelectedDealDetails(null);
+      }
     } catch (error) {
       console.error("Error fetching deals:", error);
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar as negociações." });
@@ -81,12 +88,15 @@ export function PipelinesClient() {
   const loadInitialData = async () => {
     if(!user) return;
     try {
+        setLoading(true);
         await refreshPipelines();
         const [contactsData, employeesData] = await Promise.all([getContacts(), getEmployees()]);
         setContacts(contactsData);
         setEmployees(employeesData);
     } catch(e) {
         toast({ variant: "destructive", title: "Erro", description: "Falha ao carregar dados iniciais." });
+    } finally {
+        setLoading(false);
     }
   }
 
@@ -118,6 +128,9 @@ export function PipelinesClient() {
 
     // Optimistic update
     setDeals(deals.map(d => d.id === dealId ? { ...d, stage: newStage } : d));
+    if (selectedDealDetails?.id === dealId) {
+      setSelectedDealDetails(prev => prev ? { ...prev, stage: newStage } : null);
+    }
 
     try {
       await updateDeal(dealId, { stage: newStage });
@@ -130,12 +143,16 @@ export function PipelinesClient() {
   };
 
   const openDealModal = (deal: Deal | null) => {
-    setSelectedDeal(deal);
+    setDealForModal(deal);
     setIsDealModalOpen(true);
   };
   
   const onDealUpdated = () => {
     refreshDeals();
+  }
+
+  const handleCardClick = (deal: Deal) => {
+    setSelectedDealDetails(deal);
   }
 
   return (
@@ -145,6 +162,7 @@ export function PipelinesClient() {
           <Select
             value={selectedPipelineId ?? ""}
             onValueChange={setSelectedPipelineId}
+            disabled={loading}
           >
             <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Selecione um pipeline" />
@@ -164,39 +182,75 @@ export function PipelinesClient() {
             Gerenciar Pipelines
           </Button>
         </div>
-        <Button onClick={() => openDealModal(null)}>Adicionar Negociação</Button>
+        <Button onClick={() => openDealModal(null)} disabled={!selectedPipelineId}>Adicionar Negociação</Button>
+      </div>
+      
+      <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-hidden">
+        {/* Kanban Board Column */}
+        <div className="lg:col-span-2 overflow-x-auto h-full">
+            <DndContext onDragEnd={onDragEnd}>
+                <div className="flex-grow flex gap-4 pb-4 h-full">
+                {loading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="flex-shrink-0 w-80 space-y-4">
+                            <Skeleton className="h-8 w-1/2" />
+                            <Skeleton className="h-24 w-full" />
+                            <Skeleton className="h-24 w-full" />
+                        </div>
+                    ))
+                ) : selectedPipeline ? (
+                    selectedPipeline.stages.map((stage) => {
+                        const dealsInStage = deals.filter((deal) => deal.stage === stage);
+                        const totalValue = dealsInStage.reduce((sum, deal) => sum + deal.value, 0);
+
+                        return (
+                            <KanbanColumn key={stage} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
+                                {dealsInStage.map((deal) => (
+                                    <DealCard key={deal.id} deal={deal} onClick={() => handleCardClick(deal)} />
+                                ))}
+                            </KanbanColumn>
+                        );
+                    })
+                ) : (
+                    <div className="flex-grow flex items-center justify-center">
+                    <p className="text-muted-foreground">Selecione um pipeline para começar.</p>
+                    </div>
+                )}
+                </div>
+            </DndContext>
+        </div>
+        
+        {/* Details Column */}
+        <div className="lg:col-span-1 h-full overflow-y-auto pr-2">
+            <Card className="h-full">
+                <CardHeader>
+                    <CardTitle>Detalhes da Negociação</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {selectedDealDetails ? (
+                         <div className="space-y-4">
+                            <h3 className="text-xl font-semibold">{selectedDealDetails.title}</h3>
+                             <p className="text-2xl font-bold text-primary">{formatCurrency(selectedDealDetails.value)}</p>
+                            <div className="space-y-2 text-sm">
+                                <p><span className="font-semibold">Contato:</span> {selectedDealDetails.contactName}</p>
+                                <p><span className="font-semibold">Responsável:</span> {selectedDealDetails.ownerName}</p>
+                                <p><span className="font-semibold">Pipeline:</span> {selectedPipeline?.name}</p>
+                                <p><span className="font-semibold">Estágio:</span> {selectedDealDetails.stage}</p>
+                            </div>
+                            <Button className="w-full" onClick={() => openDealModal(selectedDealDetails)}>
+                                Editar Negociação
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-48">
+                            <p className="text-muted-foreground">Selecione uma negociação para ver os detalhes.</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
       </div>
 
-      <DndContext onDragEnd={onDragEnd}>
-        <div className="flex-grow flex gap-4 overflow-x-auto pb-4">
-          {loading ? (
-             Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-80 space-y-4">
-                    <Skeleton className="h-8 w-1/2" />
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-24 w-full" />
-                </div>
-             ))
-          ) : selectedPipeline ? (
-            selectedPipeline.stages.map((stage) => {
-                const dealsInStage = deals.filter((deal) => deal.stage === stage);
-                const totalValue = dealsInStage.reduce((sum, deal) => sum + deal.value, 0);
-
-                return (
-                    <KanbanColumn key={stage} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
-                        {dealsInStage.map((deal) => (
-                            <DealCard key={deal.id} deal={deal} onClick={() => openDealModal(deal)} />
-                        ))}
-                    </KanbanColumn>
-                );
-            })
-          ) : (
-            <div className="flex-grow flex items-center justify-center">
-              <p className="text-muted-foreground">Selecione um pipeline para começar.</p>
-            </div>
-          )}
-        </div>
-      </DndContext>
 
       <ManagePipelinesModal
         isOpen={isPipelinesModalOpen}
@@ -207,11 +261,20 @@ export function PipelinesClient() {
          <DealModal
             isOpen={isDealModalOpen}
             onClose={() => setIsDealModalOpen(false)}
-            deal={selectedDeal}
+            deal={dealForModal}
             pipelines={pipelines}
             contacts={contacts}
             employees={employees}
-            onDealUpdated={onDealUpdated}
+            onDealUpdated={() => {
+                refreshDeals();
+                // also refresh details if the edited deal is the one being shown
+                if (dealForModal && selectedDealDetails && dealForModal.id === selectedDealDetails.id) {
+                  const updatedDeal = deals.find(d => d.id === dealForModal.id);
+                  if (updatedDeal) {
+                    setSelectedDealDetails(updatedDeal);
+                  }
+                }
+            }}
         />
       )}
     </>
