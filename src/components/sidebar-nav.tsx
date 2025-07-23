@@ -23,6 +23,7 @@ import {
   Landmark,
   ChevronLeft,
   ChevronRight,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -70,6 +71,13 @@ const employeeNavItems = [
       { href: "/dashboard/vendas/contatos", label: "Contatos", icon: Contact },
       { href: "/dashboard/vendas/empresas", label: "Empresas", icon: Building },
       { href: "/dashboard/vendas/pipelines", label: "Pipelines", icon: KanbanSquare },
+    ]
+  },
+  { 
+    id: "marketing",
+    label: "Marketing", 
+    subItems: [
+      { href: "/dashboard/marketing/disparos", label: "Disparos", icon: Megaphone },
     ]
   },
 ];
