@@ -10,9 +10,7 @@ export default function DashboardLayout({
   return (
     <AuthGuard>
       <div className="grid min-h-screen w-full grid-cols-[240px_1fr]">
-        <div className="flex flex-col bg-sidebar">
-          <SidebarNav />
-        </div>
+        <SidebarNav />
         <div className="flex flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center justify-end gap-4 bg-background px-4 sm:px-6">
             <UserNav />

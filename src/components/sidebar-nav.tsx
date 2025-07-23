@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const employeeNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Relatórios", icon: LayoutDashboard },
   { href: "/dashboard/formacoes", label: "Minhas Formações", icon: GraduationCap },
   { 
     id: "gestao",
@@ -83,7 +83,7 @@ export function SidebarNav() {
   const navItems = userRole === 'student' ? studentNavItems : employeeNavItems;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
        <div className="flex h-14 items-center px-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Zap className="h-6 w-6 text-primary" />
@@ -101,7 +101,7 @@ export function SidebarNav() {
                     <Link
                       href={subItem.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         (pathname === subItem.href || pathname.startsWith(subItem.href + '/'))
                          ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""
                       )}
@@ -118,7 +118,7 @@ export function SidebarNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 pathname === item.href && "bg-sidebar-accent text-sidebar-accent-foreground"
               )}
             >
