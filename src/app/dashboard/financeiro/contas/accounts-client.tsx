@@ -55,6 +55,24 @@ const recurrenceOptions: { value: RecurrenceType; label: string }[] = [
     { value: "yearly", label: "Anual" },
 ];
 
+const categoryOptions = [
+    "Folha de Pagamento (Salários)",
+    "Benefícios",
+    "Impostos e Encargos",
+    "Aluguer de Escritório",
+    "Contas de Consumo (Água, Luz, Internet)",
+    "Software e Assinaturas",
+    "Publicidade Online",
+    "Marketing de Conteúdo e SEO",
+    "Eventos e Webinars",
+    "Comissões de Vendas",
+    "Hospedagem e Plataforma",
+    "Serviços de Contabilidade",
+    "Taxas Bancárias",
+    "Outros"
+];
+
+
 export function AccountsClient() {
   const [activeTab, setActiveTab] = useState<FinancialAccountType>("receivable");
   const [accounts, setAccounts] = useState<FinancialAccount[]>([]);
@@ -215,7 +233,16 @@ export function AccountsClient() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="category" render={({ field }) => (
-                    <FormItem><FormLabel>Categoria</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Categoria</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            {categoryOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
                 )}/>
                 <FormField control={form.control} name="recurrence" render={({ field }) => (
                   <FormItem><FormLabel>Recorrência</FormLabel>
@@ -316,3 +343,5 @@ function AccountsTable({ accounts, loading, onEdit, onDelete }: AccountsTablePro
     </Card>
   );
 }
+
+    
