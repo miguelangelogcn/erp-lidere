@@ -20,6 +20,7 @@ import {
   GraduationCap,
   User,
   Wallet,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,7 @@ const employeeNavItems = [
     label: "Financeiro", 
     subItems: [
        { href: "/dashboard/financeiro/contas", label: "Contas", icon: Wallet },
+       { href: "/dashboard/financeiro/dividas", label: "Dívidas", icon: Landmark },
     ]
   },
   { 

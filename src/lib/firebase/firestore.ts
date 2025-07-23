@@ -159,6 +159,15 @@ export interface FinancialAccount {
     createdAt: Timestamp;
 }
 
+export interface FinancialDebt {
+    id: string;
+    name: string;
+    creditor: string;
+    totalValue: number;
+    interestRate: string;
+    createdAt: Timestamp;
+}
+
 
 // --- SERVICE FUNCTIONS ---
 
@@ -534,6 +543,21 @@ export const updateFinancialAccount = (id: string, account: Partial<Omit<Financi
     return updateDoc(doc(db, "financialAccounts", id), account);
 };
 export const deleteFinancialAccount = (id: string) => deleteDoc(doc(db, "financialAccounts", id));
+
+// Financial Debts CRUD
+export const getFinancialDebts = async (): Promise<FinancialDebt[]> => {
+    const debtsCol = collection(db, "financialDebts");
+    const q = query(debtsCol, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinancialDebt));
+};
+export const addFinancialDebt = (debt: Omit<FinancialDebt, "id" | "createdAt">) => {
+    return addDoc(collection(db, "financialDebts"), { ...debt, createdAt: serverTimestamp() });
+};
+export const updateFinancialDebt = (id: string, debt: Partial<Omit<FinancialDebt, "id" | "createdAt">>) => {
+    return updateDoc(doc(db, "financialDebts", id), debt);
+};
+export const deleteFinancialDebt = (id: string) => deleteDoc(doc(db, "financialDebts", id));
 
 
 // System Pages for Permissions
