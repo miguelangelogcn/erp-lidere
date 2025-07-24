@@ -79,7 +79,6 @@ export default function NovaCampanhaPage() {
     try {
       await addCampaign({
         name: values.name,
-        status: 'draft',
         channels: values.channels as ('email' | 'whatsapp')[],
         contactIds: values.contactIds || [],
         emailContent: values.channels.includes('email') ? {

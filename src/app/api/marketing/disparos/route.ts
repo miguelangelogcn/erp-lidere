@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb, getDoc, doc, updateDoc } from '@/lib/firebase/server';
+import { adminDb, getDoc, doc, updateDoc, collection, addDoc, serverTimestamp } from '@/lib/firebase/server';
 import { Contact, Campaign } from '@/lib/firebase/firestore';
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
@@ -29,9 +29,6 @@ export async function POST(request: Request) {
     const campaign = campaignDoc.data() as Campaign;
     
     // 2. Validar se a campanha pode ser enviada
-    if (campaign.status === 'sent') {
-         return NextResponse.json({ error: 'Esta campanha já foi enviada.' }, { status: 400 });
-    }
     if (!campaign.contactIds || campaign.contactIds.length === 0) {
         return NextResponse.json({ error: 'Nenhum contato selecionado para esta campanha.' }, { status: 400 });
     }
@@ -44,6 +41,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nenhum contato encontrado com os IDs fornecidos.' }, { status: 404 });
     }
     const contacts: Contact[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
+
+    let dispatchSuccessful = true;
 
     // 4. Lógica de disparo baseada nos canais da campanha
     if (campaign.channels.includes('email')) {
@@ -72,16 +71,27 @@ export async function POST(request: Request) {
             text: emailContent.body,
           });
         });
-
-      await Promise.all(emailPromises);
+        
+      try {
+        await Promise.all(emailPromises);
+      } catch (emailError) {
+          console.error("ERRO AO ENVIAR E-MAILS:", emailError);
+          dispatchSuccessful = false;
+      }
     }
     
     if (campaign.channels.includes('whatsapp')) {
         // Lógica do WhatsApp no futuro
     }
 
-    // 5. Atualizar o status da campanha para 'sent'
-    await updateDoc(campaignRef, { status: 'sent' });
+    // 5. Registrar o disparo (Dispatch)
+    const dispatchRef = collection(adminDb, 'dispatches');
+    await addDoc(dispatchRef, {
+        campaignId: campaignId,
+        dispatchDate: serverTimestamp(),
+        status: dispatchSuccessful ? 'success' : 'failed'
+    });
+
 
     return NextResponse.json({ message: `Campanha disparada com sucesso para ${contacts.length} contato(s)!` });
 

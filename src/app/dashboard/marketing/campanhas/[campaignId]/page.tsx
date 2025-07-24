@@ -54,7 +54,6 @@ export default function EditCampanhaPage() {
   const [isSending, setIsSending] = useState(false);
 
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
 
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignFormSchema),
@@ -75,7 +74,6 @@ export default function EditCampanhaPage() {
 
             if(campaignDoc.exists()) {
                 const campaignData = { id: campaignDoc.id, ...campaignDoc.data() } as Campaign;
-                setCampaign(campaignData);
                 form.reset({
                     name: campaignData.name,
                     contactIds: campaignData.contactIds,
@@ -121,29 +119,17 @@ export default function EditCampanhaPage() {
   };
 
   const handleSendCampaign = async () => {
-      const values = form.getValues();
-      if (!values.channels.includes('email') || !values.contactIds || values.contactIds.length === 0) {
-          toast({ variant: 'destructive', title: "Atenção", description: "Selecione contatos e o canal de e-mail para enviar."})
-          return;
-      }
-
       setIsSending(true);
       try {
            const response = await fetch('/api/marketing/disparos', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    channel: 'email',
-                    contactIds: values.contactIds,
-                    subject: values.emailSubject,
-                    message: values.emailBody,
-                }),
+                body: JSON.stringify({ campaignId }),
             });
 
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || "Ocorreu um erro");
-
-            await updateCampaign(campaignId, { status: 'sent' });
+            
             toast({ title: "Campanha Enviada!", description: result.message });
             router.push('/dashboard/marketing/campanhas');
 
@@ -311,10 +297,10 @@ export default function EditCampanhaPage() {
             <Button 
                 type="button" 
                 onClick={handleSendCampaign}
-                disabled={loading || isSending || campaign?.status === 'sent'}
+                disabled={loading || isSending}
             >
               {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              {campaign?.status === 'sent' ? 'Campanha Já Enviada' : 'Salvar e Enviar'}
+              Salvar e Enviar
             </Button>
           </div>
         </form>

@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Edit, Trash, Loader2, Send } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Edit, Trash, Loader2, Send, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -118,7 +118,6 @@ export default function CampanhasPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Contatos</TableHead>
                   <TableHead>Canais</TableHead>
                   <TableHead>Criada em</TableHead>
@@ -130,11 +129,6 @@ export default function CampanhasPage() {
                   campaigns.map((campaign) => (
                     <TableRow key={campaign.id}>
                       <TableCell className="font-medium">{campaign.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={campaign.status === 'sent' ? 'default' : 'secondary'}>
-                          {campaign.status === 'draft' ? 'Rascunho' : 'Enviada'}
-                        </Badge>
-                      </TableCell>
                       <TableCell>{campaign.contactIds.length}</TableCell>
                       <TableCell className="capitalize">{campaign.channels.join(', ')}</TableCell>
                       <TableCell>{campaign.createdAt ? format(campaign.createdAt.toDate(), 'dd/MM/yyyy') : 'N/A'}</TableCell>
@@ -151,15 +145,14 @@ export default function CampanhasPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
-                             {campaign.status === 'draft' && (
-                                <>
-                                 <DropdownMenuSeparator />
-                                 <DropdownMenuItem onClick={() => handleSendRequest(campaign)}>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Disparar Campanha
-                                </DropdownMenuItem>
-                               </>
-                            )}
+                            <DropdownMenuItem onClick={() => handleSendRequest(campaign)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Disparar
+                            </DropdownMenuItem>
+                             <DropdownMenuItem>
+                                <History className="mr-2 h-4 w-4" />
+                                Ver Histórico
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleDeleteRequest(campaign)} className="text-destructive focus:text-destructive">
                               <Trash className="mr-2 h-4 w-4" />
@@ -172,7 +165,7 @@ export default function CampanhasPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">Nenhuma campanha criada ainda.</TableCell>
+                    <TableCell colSpan={5} className="h-24 text-center">Nenhuma campanha criada ainda.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

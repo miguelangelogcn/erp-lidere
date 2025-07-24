@@ -171,7 +171,6 @@ export interface FinancialDebt {
 export interface Campaign {
     id: string;
     name: string;
-    status: 'draft' | 'sent';
     channels: ('email' | 'whatsapp')[];
     contactIds: string[];
     emailContent?: {
@@ -179,6 +178,13 @@ export interface Campaign {
         body: string;
     };
     createdAt: any;
+}
+
+export interface Dispatch {
+    id: string;
+    campaignId: string;
+    dispatchDate: any;
+    status: 'success' | 'failed';
 }
 
 
