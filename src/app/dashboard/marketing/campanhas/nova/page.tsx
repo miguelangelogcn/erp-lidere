@@ -18,7 +18,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 interface CampaignFormValues {
   name: string;
   contactIds: string[];
-  channels: string[];
+  channels: string[]; // <-- Já está definido como array, o problema é como o form envia
   emailSubject: string;
   emailBody: string;
 }
@@ -28,7 +28,11 @@ export default function NovaCampanhaPage() {
   const { toast } = useToast();
   const [contacts, setContacts] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, control, watch } = useForm<CampaignFormValues>();
+  const { register, handleSubmit, control, watch } = useForm<CampaignFormValues>({
+    defaultValues: {
+        channels: [] // Garante que o valor inicial seja um array
+    }
+  });
 
   const selectedChannels = watch("channels") || [];
 
@@ -43,23 +47,21 @@ export default function NovaCampanhaPage() {
   const onSubmit = async (data: CampaignFormValues) => {
     setLoading(true);
 
-    const payload: {
-      name: string;
-      contactIds: string[];
-      channels: string[];
-      emailContent?: { subject: string; body: string };
-    } = {
+    // ===============================================
+    // CORREÇÃO APLICADA AQUI
+    // ===============================================
+    // Garante que 'channels' seja sempre um array, mesmo que apenas um item seja selecionado.
+    const channelsAsArray = Array.isArray(data.channels) ? data.channels : [data.channels];
+
+    const payload = {
       name: data.name,
       contactIds: data.contactIds,
-      channels: data.channels,
-    };
-
-    if (data.channels.includes("email")) {
-      payload.emailContent = {
+      channels: channelsAsArray, // <-- Usando a variável corrigida
+      emailContent: channelsAsArray.includes("email") ? {
         subject: data.emailSubject,
         body: data.emailBody,
-      };
-    }
+      } : undefined,
+    };
 
     try {
       const response = await fetch('/api/marketing/campanhas', {
@@ -68,11 +70,11 @@ export default function NovaCampanhaPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Falha ao salvar a campanha.");
-      
       const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Falha ao salvar campanha.");
+      
       toast({ title: "Sucesso!", description: "Campanha criada com sucesso." });
-      router.push(`/dashboard/marketing/campanhas/${result.campaignId}`);
+      router.push('/dashboard/marketing/campanhas');
 
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: (error as Error).message });
@@ -94,7 +96,6 @@ export default function NovaCampanhaPage() {
           <Controller
             control={control}
             name="contactIds"
-            defaultValue={[]}
             render={({ field }) => (
               <MultiSelect
                 options={contacts}
@@ -124,11 +125,11 @@ export default function NovaCampanhaPage() {
             <h2 className="font-semibold">Conteúdo do E-mail</h2>
             <div>
               <label>Assunto</label>
-              <Input {...register("emailSubject", { required: selectedChannels.includes("email") })} />
+              <Input {...register("emailSubject")} />
             </div>
             <div>
               <label>Corpo da Mensagem</label>
-              <Textarea {...register("emailBody", { required: selectedChannels.includes("email") })} rows={8} />
+              <Textarea {...register("emailBody")} rows={8} />
             </div>
           </div>
         )}
