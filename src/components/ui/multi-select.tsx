@@ -43,7 +43,7 @@ interface MultiSelectProps
         icon?: React.ComponentType<{ className?: string }>;
     }[];
     onValueChange: (value: string[]) => void;
-    defaultValue: string[];
+    defaultValue?: string[];
     placeholder?: string;
     animation?: number;
     maxCount?: number;
@@ -73,10 +73,8 @@ const MultiSelect = React.forwardRef<
         const [inputValue, setInputValue] = React.useState("");
 
         React.useEffect(() => {
-            if (JSON.stringify(defaultValue) !== JSON.stringify(selected)) {
-                setSelected(defaultValue);
-            }
-        }, [defaultValue, selected]);
+            setSelected(defaultValue || []);
+        }, [defaultValue]);
 
         const handleSelect = (value: string) => {
             const newSelected = selected.includes(value)
