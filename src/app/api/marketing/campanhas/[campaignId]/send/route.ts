@@ -99,6 +99,9 @@ export async function POST(
                             }
                         }
                     };
+                    console.log(`[WhatsApp Debug] Enviando para: ${contact.phone}`);
+                    console.log("[WhatsApp Debug] Payload:", JSON.stringify(payload, null, 2));
+
                     return fetch(`https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
                         method: 'POST',
                         headers: {
@@ -111,16 +114,25 @@ export async function POST(
 
             try {
                 const results = await Promise.all(whatsappPromises);
-                results.forEach(async (res, index) => {
+                for (const [index, res] of results.entries()) {
+                    const targetPhone = contacts.filter(c => c.phone)[index].phone;
+                    const responseBody = await res.json(); // Pega o corpo da resposta
+                    
+                    console.log(`[WhatsApp Debug] Resposta da Meta para ${targetPhone}:`);
+                    console.log(`  - Status: ${res.status} ${res.statusText}`);
+                    console.log("  - Corpo:", JSON.stringify(responseBody, null, 2));
+
                     if (!res.ok) {
-                        const errorData = await res.json();
-                        console.error(`Falha ao enviar para ${contacts.filter(c => c.phone)[index].phone}:`, errorData);
+                        // O logging de erro já está sendo feito com mais detalhes acima.
+                        errors.push(`Falha no envio para ${targetPhone}.`);
                     }
-                });
-                // Considera sucesso se pelo menos tentou enviar
+                }
+                
+                // Considera sucesso se nenhuma exceção for lançada, a análise detalhada fica no log.
                 successfulDispatches++;
+                
             } catch(whatsappError: any) {
-                 console.error("ERRO AO ENVIAR WHATSAPP:", whatsappError);
+                 console.error("ERRO GERAL AO ENVIAR WHATSAPP:", whatsappError);
                  errors.push(`Falha no envio de WhatsApp: ${whatsappError.message}`);
             }
         }
