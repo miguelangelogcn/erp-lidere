@@ -17,8 +17,8 @@ export async function POST(
 
   try {
     // 1. Buscar os dados da campanha
-    const campaignRef = adminDb.collection('campaigns').doc(campaignId);
-    const campaignSnap = await campaignRef.get();
+    const campaignRef = doc(adminDb, 'campaigns', campaignId);
+    const campaignSnap = await getDoc(campaignRef);
 
     if (!campaignSnap.exists) {
       return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });

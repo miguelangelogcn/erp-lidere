@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -98,8 +99,8 @@ export default function EditCampanhaPage() {
   const selectedChannels = form.watch("channels") || [];
   const selectedContactIds = form.watch("contactIds") || [];
 
-  const onSubmit = async (values: CampaignFormValues) => {
-    setLoading(true);
+  const handleSave = async (values: CampaignFormValues) => {
+     setLoading(true);
     try {
       await updateCampaign(campaignId, {
         name: values.name,
@@ -111,20 +112,38 @@ export default function EditCampanhaPage() {
         } : undefined,
       });
       toast({ title: "Sucesso!", description: "Campanha atualizada." });
+      return true;
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar a campanha." });
+      return false;
     } finally {
         setLoading(false);
     }
+  }
+
+  const onSubmit = async (values: CampaignFormValues) => {
+    await handleSave(values);
   };
 
   const handleSendCampaign = async () => {
+      // First, trigger form validation and get current values
+      const isValid = await form.trigger();
+      if (!isValid) {
+          toast({ variant: 'destructive', title: "Erro de Validação", description: "Por favor, corrija os erros no formulário."});
+          return;
+      }
+      
+      const values = form.getValues();
+      
+      // Save the latest changes
+      const saveSuccessful = await handleSave(values);
+      if (!saveSuccessful) return;
+
+      // Proceed to send
       setIsSending(true);
       try {
-           const response = await fetch('/api/marketing/disparos', {
+           const response = await fetch(`/api/marketing/campanhas/${campaignId}/send`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ campaignId }),
             });
 
             const result = await response.json();
@@ -253,10 +272,10 @@ export default function EditCampanhaPage() {
                                             checked={field.value?.includes(item.id)}
                                             onCheckedChange={(checked) => {
                                                 return checked
-                                                ? field.onChange([...field.value, item.id])
+                                                ? field.onChange([...(field.value || []), item.id])
                                                 : field.onChange(
-                                                    field.value?.filter(
-                                                    (value) => value !== item.id
+                                                    (field.value || [])?.filter(
+                                                        (value) => value !== item.id
                                                     )
                                                 )
                                             }}

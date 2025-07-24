@@ -1,34 +1,28 @@
 import { initializeApp, getApps, getApp, cert, ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, getDoc, doc, updateDoc, collection, addDoc, serverTimestamp } from "firebase-admin/firestore";
+import { getFirestore } from "firebase-admin/firestore";
 
 let app;
 
 try {
-  // Pega a chave do ambiente
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-
-  // Verifica se a chave existe
   if (!serviceAccountKey) {
-    throw new Error("A variável de ambiente FIREBASE_SERVICE_ACCOUNT_KEY não foi encontrada. Verifique seu arquivo .env.local.");
+    throw new Error("A variável de ambiente FIREBASE_SERVICE_ACCOUNT_KEY não foi encontrada.");
   }
 
-  // Tenta converter a chave para JSON
   const serviceAccount: ServiceAccount = JSON.parse(serviceAccountKey);
 
-  // Inicializa o Firebase Admin SDK
   app = !getApps().length
     ? initializeApp({ credential: cert(serviceAccount) })
     : getApp();
 
 } catch (error: any) {
-  // Se qualquer passo acima falhar, exibe um erro claro no terminal
   console.error("❌ ERRO CRÍTICO AO INICIAR O FIREBASE ADMIN:", error.message);
-  // Lança o erro para que o Next.js saiba que a inicialização falhou
   throw error;
 }
 
 const adminAuth = getAuth(app);
 const adminDb = getFirestore(app);
 
-export { app as adminApp, adminAuth, adminDb, getDoc, doc, updateDoc, collection, addDoc, serverTimestamp };
+// EXPORTAÇÕES CORRETAS (APENAS AS INSTÂNCIAS)
+export { app as adminApp, adminAuth, adminDb };
