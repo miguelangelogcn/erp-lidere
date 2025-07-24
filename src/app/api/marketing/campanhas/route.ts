@@ -1,31 +1,18 @@
+// src/app/api/marketing/campanhas/route.ts
+
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/server';
 import { collection, addDoc, serverTimestamp } from 'firebase-admin/firestore';
-import { z } from 'zod';
-
-// Schema para validar a criação de uma nova campanha
-const createCampaignSchema = z.object({
-  name: z.string().min(1),
-  contactIds: z.array(z.string()).min(1),
-  channels: z.array(z.string()).min(1),
-  emailContent: z.object({
-    subject: z.string(),
-    body: z.string(),
-  }).optional(),
-});
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const validation = createCampaignSchema.safeParse(body);
-
-    if (!validation.success) {
-      return NextResponse.json({ error: 'Dados da campanha inválidos.', details: validation.error.flatten() }, { status: 400 });
-    }
-
+    
     const newCampaignData = {
-      ...validation.data,
-      status: 'draft', // Sempre salva como rascunho
+      name: body.name,
+      contactIds: body.contactIds,
+      channels: body.channels,
+      emailContent: body.emailContent,
       createdAt: serverTimestamp(),
     };
 

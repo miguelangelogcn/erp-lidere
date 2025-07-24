@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Check, ChevronsUpDown, Send, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { Campaign, Contact, getContacts, getDoc, doc, db, updateCampaign } from "@/lib/firebase/firestore";
+import { Campaign, Contact, getContacts, getDoc, doc, updateCampaign } from "@/lib/firebase/firestore";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";

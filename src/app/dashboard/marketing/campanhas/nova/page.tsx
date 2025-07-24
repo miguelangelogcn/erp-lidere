@@ -1,239 +1,133 @@
+// src/app/dashboard/marketing/campanhas/nova/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm, Controller } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Check, ChevronsUpDown } from "lucide-react";
-import Link from "next/link";
-import { addCampaign, Contact, getContacts } from "@/lib/firebase/firestore";
+import { getContacts, Contact } from "@/lib/firebase/firestore";
+
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
+import { MultiSelect } from "@/components/ui/multi-select"; // Supondo que você tenha este componente
 
-const campaignFormSchema = z.object({
-  name: z.string().min(1, "O nome da campanha é obrigatório."),
-  contactIds: z.array(z.string()).optional(),
-  channels: z.array(z.string()).min(1, "Selecione pelo menos um canal."),
-  emailSubject: z.string().optional(),
-  emailBody: z.string().optional(),
-}).refine(data => {
-    if (data.channels.includes('email')) {
-        return !!data.emailSubject && !!data.emailBody;
-    }
-    return true;
-}, {
-    message: "Assunto e corpo do e-mail são obrigatórios para o canal E-mail.",
-    path: ["emailSubject"], 
-});
-
-type CampaignFormValues = z.infer<typeof campaignFormSchema>;
-
-const channelOptions = [
-    { id: 'email', label: 'E-mail' },
-    { id: 'whatsapp', label: 'WhatsApp (em breve)', disabled: true },
-]
+interface CampaignFormValues {
+  name: string;
+  contactIds: string[];
+  channels: string[];
+  emailSubject: string;
+  emailBody: string;
+}
 
 export default function NovaCampanhaPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [contacts, setContacts] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(false);
-  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const { register, handleSubmit, control, watch } = useForm<CampaignFormValues>();
 
-  const form = useForm<CampaignFormValues>({
-    resolver: zodResolver(campaignFormSchema),
-    defaultValues: {
-      name: "",
-      contactIds: [],
-      channels: ["email"],
-      emailSubject: "",
-      emailBody: "",
-    },
-  });
+  const selectedChannels = watch("channels") || [];
 
   useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const contactsData = await getContacts();
-        setAllContacts(contactsData);
-      } catch (error) {
-        toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os contatos." });
-      }
-    };
-    fetchContacts();
-  }, [toast]);
+    async function loadContacts() {
+      const contactsData = await getContacts();
+      setContacts(contactsData.map(c => ({ value: c.id, label: `${c.name} (${c.email})` })));
+    }
+    loadContacts();
+  }, []);
 
-  const selectedChannels = form.watch("channels");
-  const selectedContactIds = form.watch("contactIds") || [];
-
-  const onSubmit = async (values: CampaignFormValues) => {
+  const onSubmit = async (data: CampaignFormValues) => {
     setLoading(true);
+
+    const payload = {
+      name: data.name,
+      contactIds: data.contactIds,
+      channels: data.channels,
+      emailContent: data.channels.includes("email") ? {
+        subject: data.emailSubject,
+        body: data.emailBody,
+      } : undefined,
+    };
+
     try {
-      await addCampaign({
-        name: values.name,
-        channels: values.channels as ('email' | 'whatsapp')[],
-        contactIds: values.contactIds || [],
-        emailContent: values.channels.includes('email') ? {
-          subject: values.emailSubject || "",
-          body: values.emailBody || "",
-        } : undefined,
+      const response = await fetch('/api/marketing/campanhas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      toast({ title: "Sucesso!", description: "Campanha salva como rascunho." });
-      router.push("/dashboard/marketing/campanhas");
+
+      if (!response.ok) throw new Error("Falha ao salvar a campanha.");
+      
+      toast({ title: "Sucesso!", description: "Campanha criada com sucesso." });
+      router.push('/dashboard/marketing/campanhas');
+
     } catch (error) {
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar a campanha." });
+      toast({ variant: "destructive", title: "Erro", description: (error as Error).message });
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Nova Campanha</h1>
-        <p className="text-muted-foreground">Crie o conteúdo e defina os destinatários da sua campanha.</p>
-      </div>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuração da Campanha</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>Nome da Campanha</FormLabel><FormControl><Input placeholder="Ex: Lançamento de Natal" {...field} /></FormControl><FormMessage /></FormItem>
-              )}/>
-
-              <FormField
-                    control={form.control}
-                    name="contactIds"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Destinatários</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button variant="outline" role="combobox" className={cn("w-full justify-between", selectedContactIds.length === 0 && "text-muted-foreground")}>
-                                <span className="line-clamp-1">
-                                  {selectedContactIds.length > 0
-                                    ? `${selectedContactIds.length} contato(s) selecionado(s)`
-                                    : "Selecione os contatos"}
-                                </span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                            <Command>
-                              <CommandInput placeholder="Buscar contato..." />
-                               <CommandList>
-                                <CommandEmpty>Nenhum contato encontrado.</CommandEmpty>
-                                <CommandGroup>
-                                  {allContacts.map((contact) => (
-                                    <CommandItem
-                                      value={contact.name}
-                                      key={contact.id}
-                                      onSelect={() => {
-                                        const newValue = selectedContactIds.includes(contact.id)
-                                          ? selectedContactIds.filter(id => id !== contact.id)
-                                          : [...selectedContactIds, contact.id];
-                                        field.onChange(newValue);
-                                      }}
-                                    >
-                                      <Check className={cn("mr-2 h-4 w-4", selectedContactIds.includes(contact.id) ? "opacity-100" : "opacity-0")} />
-                                      <div className="flex flex-col">
-                                        <span>{contact.name}</span>
-                                        <span className="text-xs text-muted-foreground">{contact.email}</span>
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                <FormField
-                    control={form.control}
-                    name="channels"
-                    render={() => (
-                        <FormItem>
-                            <FormLabel>Canais</FormLabel>
-                            <div className="flex items-center gap-4">
-                                {channelOptions.map((item) => (
-                                <FormField
-                                    key={item.id}
-                                    control={form.control}
-                                    name="channels"
-                                    render={({ field }) => {
-                                    return (
-                                        <FormItem
-                                        key={item.id}
-                                        className="flex flex-row items-start space-x-3 space-y-0"
-                                        >
-                                        <FormControl>
-                                            <Checkbox
-                                            checked={field.value?.includes(item.id)}
-                                            onCheckedChange={(checked) => {
-                                                return checked
-                                                ? field.onChange([...field.value, item.id])
-                                                : field.onChange(
-                                                    field.value?.filter(
-                                                    (value) => value !== item.id
-                                                    )
-                                                )
-                                            }}
-                                            disabled={item.disabled}
-                                            />
-                                        </FormControl>
-                                        <FormLabel className="font-normal">{item.label}</FormLabel>
-                                        </FormItem>
-                                    )
-                                    }}
-                                />
-                                ))}
-                            </div>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-              {selectedChannels.includes('email') && (
-                <div className="space-y-6 border-t pt-6">
-                    <CardTitle>Conteúdo do E-mail</CardTitle>
-                    <FormField control={form.control} name="emailSubject" render={({ field }) => (
-                        <FormItem><FormLabel>Assunto do E-mail</FormLabel><FormControl><Input placeholder="O título que seus contatos verão" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={form.control} name="emailBody" render={({ field }) => (
-                        <FormItem><FormLabel>Corpo do E-mail</FormLabel><FormControl><Textarea rows={15} placeholder="Escreva a sua mensagem aqui..." {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                </div>
-              )}
-
-            </CardContent>
-          </Card>
-          <div className="mt-6 flex justify-end gap-2">
-            <Button variant="outline" asChild>
-                <Link href="/dashboard/marketing/campanhas">Cancelar</Link>
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Salvar Campanha
-            </Button>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Criar Nova Campanha</h1>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
+        <div>
+          <label>Nome da Campanha</label>
+          <Input {...register("name", { required: true })} />
+        </div>
+        <div>
+          <label>Contatos</label>
+          <Controller
+            control={control}
+            name="contactIds"
+            render={({ field }) => (
+              <MultiSelect
+                options={contacts}
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+                placeholder="Selecione os contatos..."
+              />
+            )}
+          />
+        </div>
+        <div>
+          <label>Canais</label>
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center">
+              <Checkbox value="email" {...register("channels")} />
+              <span className="ml-2">E-mail</span>
+            </label>
+            <label className="flex items-center text-gray-400">
+              <Checkbox disabled />
+              <span className="ml-2">WhatsApp (em breve)</span>
+            </label>
           </div>
-        </form>
-      </Form>
+        </div>
+
+        {selectedChannels.includes("email") && (
+          <div className="border p-4 rounded-md space-y-4">
+            <h2 className="font-semibold">Conteúdo do E-mail</h2>
+            <div>
+              <label>Assunto</label>
+              <Input {...register("emailSubject", { required: true })} />
+            </div>
+            <div>
+              <label>Corpo da Mensagem</label>
+              <Textarea {...register("emailBody", { required: true })} rows={8} />
+            </div>
+          </div>
+        )}
+
+        <Button type="submit" disabled={loading}>
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Salvar Campanha
+        </Button>
+      </form>
     </div>
   );
 }
