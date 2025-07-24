@@ -1,3 +1,4 @@
+
 // src/lib/firebase/firestore.ts
 
 import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch } from "firebase/firestore";
@@ -385,6 +386,13 @@ export async function updateActionPlanTask(followUpId: string, taskId: string, d
 }
 
 // Contacts
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  userId?: string;
+}
 export async function getContacts(): Promise<Contact[]> {
   const contactsCol = collection(db, "contacts");
   const querySnapshot = await getDocs(contactsCol);
@@ -434,6 +442,12 @@ export async function createStudentFromContact(contact: Contact, password: strin
 
 
 // Companies
+export interface Company {
+    id: string;
+    name: string;
+    website?: string;
+    phone?: string;
+}
 export async function getCompanies(): Promise<Company[]> {
   const companiesCol = collection(db, "companies");
   const querySnapshot = await getDocs(companiesCol);
@@ -452,6 +466,11 @@ export async function deleteCompany(id: string) {
 }
 
 // Pipelines
+export interface Pipeline {
+    id: string;
+    name: string;
+    stages: string[];
+}
 export async function getPipelines(): Promise<Pipeline[]> {
   const pipelinesCol = collection(db, "pipelines");
   const querySnapshot = await getDocs(pipelinesCol);
