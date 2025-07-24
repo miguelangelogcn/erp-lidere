@@ -651,6 +651,7 @@ export interface Dispatch {
   status: 'queued' | 'processing' | 'completed' | 'failed';
   totalContacts: number;
   processedContacts: number;
+  createdAt: any; // Timestamp
   startedAt: any; // Timestamp
   completedAt: any; // Timestamp
   error?: string;
@@ -700,4 +701,6 @@ export async function getAllTags(): Promise<string[]> {
     });
     return Array.from(allTags).sort();
 }
+    
+
     
