@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -58,7 +57,7 @@ const MultiSelect = React.forwardRef<
 >(
     (
         {
-            options,
+            options = [],
             onValueChange,
             variant,
             defaultValue,
