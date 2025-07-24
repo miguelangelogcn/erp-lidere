@@ -1,29 +1,38 @@
-// src/lib/firebase/server.ts
-import { initializeApp, getApps, getApp, cert } from "firebase-admin/app";
+import { initializeApp, getApps, getApp, cert, ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-  : {
-      type: process.env.FIREBASE_TYPE,
-      project_id: process.env.FIREBASE_PROJECT_ID,
-      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-      private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: process.env.FIREBASE_CLIENT_ID,
-      auth_uri: process.env.FIREBASE_AUTH_URI,
-      token_uri: process.env.FIREBASE_TOKEN_URI,
-      auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
-      client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
-    };
+let app;
 
+try {
+  // Pega a chave do ambiente
+  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-const app = !getApps().length
-  ? initializeApp({ credential: cert(serviceAccount) })
-  : getApp();
+  // Verifica se a chave existe
+  if (!serviceAccountKey) {
+    throw new Error("A variável de ambiente FIREBASE_SERVICE_ACCOUNT_KEY não foi encontrada. Verifique seu arquivo .env.local.");
+  }
 
-const auth = getAuth(app);
-const db = getFirestore(app);
+  // Tenta converter a chave para JSON
+  const serviceAccount: ServiceAccount = JSON.parse(serviceAccountKey);
 
-export { app as adminApp, auth as adminAuth, db as adminDb };
+  console.log("✔️ Credenciais do Firebase encontradas. Inicializando o Admin SDK...");
+
+  // Inicializa o Firebase Admin SDK
+  app = !getApps().length
+    ? initializeApp({ credential: cert(serviceAccount) })
+    : getApp();
+
+  console.log("✔️ Conexão com o Firebase estabelecida com sucesso!");
+
+} catch (error: any) {
+  // Se qualquer passo acima falhar, exibe um erro claro no terminal
+  console.error("❌ ERRO CRÍTICO AO INICIAR O FIREBASE ADMIN:", error.message);
+  // Lança o erro para que o Next.js saiba que a inicialização falhou
+  throw error;
+}
+
+const adminAuth = getAuth(app);
+const adminDb = getFirestore(app);
+
+export { app as adminApp, adminAuth, adminDb };

@@ -168,6 +168,19 @@ export interface FinancialDebt {
     createdAt: Timestamp;
 }
 
+export interface Campaign {
+    id: string;
+    name: string;
+    status: 'draft' | 'sent';
+    channels: ('email' | 'whatsapp')[];
+    contactIds: string[];
+    emailContent?: {
+        subject: string;
+        body: string;
+    };
+    createdAt: any;
+}
+
 
 // --- SERVICE FUNCTIONS ---
 
@@ -571,6 +584,21 @@ export const updateFinancialDebt = (id: string, debt: Partial<Omit<FinancialDebt
     return updateDoc(doc(db, "financialDebts", id), debt);
 };
 export const deleteFinancialDebt = (id: string) => deleteDoc(doc(db, "financialDebts", id));
+
+// Campaigns CRUD
+export const getCampaigns = async (): Promise<Campaign[]> => {
+    const campaignsCol = collection(db, "campaigns");
+    const q = query(campaignsCol, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign));
+};
+export const addCampaign = (campaign: Omit<Campaign, "id">) => {
+    return addDoc(collection(db, "campaigns"), { ...campaign, createdAt: serverTimestamp() });
+};
+export const updateCampaign = (id: string, campaign: Partial<Omit<Campaign, "id">>) => {
+    return updateDoc(doc(db, "campaigns", id), campaign);
+};
+export const deleteCampaign = (id: string) => deleteDoc(doc(db, "campaigns", id));
 
 
 // System Pages for Permissions
