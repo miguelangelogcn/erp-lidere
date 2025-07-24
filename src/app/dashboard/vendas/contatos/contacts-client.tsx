@@ -35,12 +35,21 @@ const grantAccessSchema = z.object({
 });
 type GrantAccessFormValues = z.infer<typeof grantAccessSchema>;
 
+const bulkTagFormSchema = z.object({
+  tag: z.string().min(1, "A tag é obrigatória."),
+});
+type BulkTagFormValues = z.infer<typeof bulkTagFormSchema>;
+
+
 export function ContactsClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
   const [isGrantAccessOpen, setIsGrantAccessOpen] = useState(false);
+  const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState(false);
+  const [bulkTagAction, setBulkTagAction] = useState<'add' | 'remove' | null>(null);
+
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,6 +86,11 @@ export function ContactsClient() {
     defaultValues: { password: "" },
   });
 
+  const bulkTagForm = useForm<BulkTagFormValues>({
+      resolver: zodResolver(bulkTagFormSchema),
+      defaultValues: { tag: "" },
+  });
+
   const handleDialogOpen = (contact: Contact | null) => {
     setSelectedContact(contact);
     if (contact) {
@@ -96,6 +110,11 @@ export function ContactsClient() {
   const handleDeleteAlertOpen = (contact: Contact) => {
     setSelectedContact(contact);
     setIsDeleteAlertOpen(true);
+  }
+  
+  const handleBulkTagOpen = (action: 'add' | 'remove') => {
+      setBulkTagAction(action);
+      setIsBulkTagModalOpen(true);
   }
 
   const onSubmit = async (values: ContactFormValues) => {
@@ -168,9 +187,35 @@ export function ContactsClient() {
     }
   }
 
+  const onBulkTagSubmit = async (values: BulkTagFormValues) => {
+    if (!bulkTagAction) return;
+    setLoading(true);
+    try {
+        const response = await fetch('/api/contacts/bulk-tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                contactIds: selectedRowKeys,
+                tag: values.tag,
+                action: bulkTagAction,
+            }),
+        });
+        const result = await response.json();
+        if(!response.ok) throw new Error(result.error || `Falha ao ${bulkTagAction === 'add' ? 'adicionar' : 'remover'} tag.`);
+        toast({ title: "Sucesso", description: result.message });
+        await refreshData();
+        setIsBulkTagModalOpen(false);
+        bulkTagForm.reset();
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erro", description: (error as Error).message });
+    } finally {
+        setLoading(false);
+    }
+  }
+
+
   return (
     <>
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
                 <DropdownMenu>
@@ -180,6 +225,9 @@ export function ContactsClient() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleBulkTagOpen('add')}>Adicionar Tag</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleBulkTagOpen('remove')}>Remover Tag</DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setIsBulkDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
                            <Trash className="mr-2 h-4 w-4" /> Excluir Selecionados ({selectedRowKeys.length})
                         </DropdownMenuItem>
@@ -191,12 +239,13 @@ export function ContactsClient() {
                 Adicionar Contato
             </Button>
         </div>
+
+      {/* Modals and Dialogs */}
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-md">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-              <DialogHeader>
-                <DialogTitle>{selectedContact ? "Editar Contato" : "Adicionar Contato"}</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>{selectedContact ? "Editar Contato" : "Adicionar Contato"}</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
                 <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Nome</FormLabel><FormControl><Input placeholder="Nome completo" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="email@dominio.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -225,9 +274,7 @@ export function ContactsClient() {
                         <FormField control={grantAccessForm.control} name="password" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Senha Inicial</FormLabel>
-                                <FormControl>
-                                    <Input type="password" placeholder="••••••••" {...field} />
-                                </FormControl>
+                                <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )} />
@@ -270,6 +317,36 @@ export function ContactsClient() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={isBulkTagModalOpen} onOpenChange={setIsBulkTagModalOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>{bulkTagAction === 'add' ? 'Adicionar Tag em Massa' : 'Remover Tag em Massa'}</DialogTitle>
+                  <DialogDescription>
+                      {bulkTagAction === 'add' ? 'Digite a tag que você deseja adicionar aos' : 'Digite a tag que você deseja remover dos'} {selectedRowKeys.length} contatos selecionados.
+                  </DialogDescription>
+              </DialogHeader>
+              <Form {...bulkTagForm}>
+                  <form onSubmit={bulkTagForm.handleSubmit(onBulkTagSubmit)} className="space-y-4">
+                      <FormField
+                          control={bulkTagForm.control}
+                          name="tag"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Tag</FormLabel>
+                                  <FormControl><Input placeholder="Ex: Lead Qualificado" {...field} /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                      />
+                      <DialogFooter>
+                          <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+                          <Button type="submit" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Confirmar</Button>
+                      </DialogFooter>
+                  </form>
+              </Form>
+          </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader><CardTitle>Lista de Contatos</CardTitle></CardHeader>
         <CardContent>
@@ -285,7 +362,7 @@ export function ContactsClient() {
                   <TableRow>
                     <TableHead className="w-[50px]">
                         <Checkbox 
-                            checked={selectedRowKeys.length > 0 && selectedRowKeys.length === contacts.length}
+                            checked={contacts.length > 0 && selectedRowKeys.length === contacts.length}
                             onCheckedChange={(checked) => {
                                 if(checked) {
                                     setSelectedRowKeys(contacts.map(c => c.id));
@@ -293,11 +370,13 @@ export function ContactsClient() {
                                     setSelectedRowKeys([]);
                                 }
                             }}
+                            aria-label="Selecionar todas as linhas"
                         />
                     </TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
+                    <TableHead>Tags</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-[100px] text-right">Ações</TableHead>
                   </TableRow>
@@ -315,11 +394,17 @@ export function ContactsClient() {
                                     setSelectedRowKeys(prev => prev.filter(id => id !== contact.id));
                                 }
                             }}
+                            aria-label={`Selecionar linha para ${contact.name}`}
                           />
                       </TableCell>
                       <TableCell className="font-medium">{contact.name}</TableCell>
                       <TableCell>{contact.email}</TableCell>
                       <TableCell>{contact.phone}</TableCell>
+                       <TableCell>
+                         <div className="flex flex-wrap gap-1">
+                            {contact.tags?.map(tag => <Badge key={tag} variant="secondary">{tag}</Badge>)}
+                         </div>
+                      </TableCell>
                       <TableCell>
                           {contact.userId ? <Badge>Aluno</Badge> : <Badge variant="secondary">Contato</Badge>}
                       </TableCell>
@@ -343,6 +428,9 @@ export function ContactsClient() {
                 ))}
                 </TableBody>
             </Table>
+           )}
+           {contacts.length === 0 && !pageLoading && (
+                <div className="text-center p-8 text-muted-foreground">Nenhum contato encontrado.</div>
            )}
         </CardContent>
       </Card>
