@@ -99,6 +99,8 @@ export default function EditCampanhaPage() {
     resolver: zodResolver(campaignFormSchema),
     defaultValues: { name: "", segmentType: "individual", contactIds: [], targetTags: [], channels: [], emailSubject: "", emailBody: "", whatsappTemplateName: "" },
   });
+  
+  const { setValue } = form;
 
   const selectedChannels = form.watch("channels") || [];
   const selectedContactIds = form.watch("contactIds") || [];
@@ -227,6 +229,15 @@ export default function EditCampanhaPage() {
           setIsSending(false);
       }
   };
+  
+  const handleSelectAllContacts = () => {
+    const allContactIds = allContacts.map(c => c.id);
+    setValue('contactIds', allContactIds);
+  };
+
+  const handleClearAllContacts = () => {
+    setValue('contactIds', []);
+  };
 
   if (pageLoading) {
       return (
@@ -298,6 +309,13 @@ export default function EditCampanhaPage() {
                         name="contactIds"
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
+                            <div className="flex justify-between items-center">
+                                <FormLabel>Contatos</FormLabel>
+                                <div className="space-x-2">
+                                    <Button type="button" variant="link" className="p-0 h-auto" onClick={handleSelectAllContacts}>Selecionar Todos</Button>
+                                    <Button type="button" variant="link" className="p-0 h-auto" onClick={handleClearAllContacts}>Limpar Seleção</Button>
+                                </div>
+                            </div>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <FormControl>
@@ -472,3 +490,6 @@ export default function EditCampanhaPage() {
     </div>
   );
 }
+
+
+    
