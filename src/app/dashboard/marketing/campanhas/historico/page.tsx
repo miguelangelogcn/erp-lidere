@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Campaign, Dispatch, getDoc, doc, db, getDispatchesByCampaignId } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,10 +13,9 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function HistoricoDisparosPage() {
+export default function HistoricoDisparosPage({ params }: { params: { campaignId: string } }) {
     const router = useRouter();
-    const params = useParams();
-    const campaignId = params.campaignId as string;
+    const campaignId = params.campaignId;
     const { toast } = useToast();
 
     const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -111,4 +110,3 @@ export default function HistoricoDisparosPage() {
         </div>
     );
 }
-

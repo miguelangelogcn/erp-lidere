@@ -16,14 +16,10 @@ try {
   // Tenta converter a chave para JSON
   const serviceAccount: ServiceAccount = JSON.parse(serviceAccountKey);
 
-  console.log("✔️ Credenciais do Firebase encontradas. Inicializando o Admin SDK...");
-
   // Inicializa o Firebase Admin SDK
   app = !getApps().length
     ? initializeApp({ credential: cert(serviceAccount) })
     : getApp();
-
-  console.log("✔️ Conexão com o Firebase estabelecida com sucesso!");
 
 } catch (error: any) {
   // Se qualquer passo acima falhar, exibe um erro claro no terminal
