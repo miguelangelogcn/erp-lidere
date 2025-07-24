@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 import { useToast } from "@/hooks/use-toast";
-import { getContacts, Contact as ContactType } from "@/lib/firebase/firestore";
+import { getContacts, Contact as ContactType, getAllTags } from "@/lib/firebase/firestore";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { cn } from "@/lib/utils";
 
 interface WhatsAppTemplate {
@@ -30,11 +32,25 @@ interface WhatsAppTemplate {
 
 const campaignFormSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
-  contactIds: z.array(z.string()).min(1, "Selecione pelo menos um contato."),
+  segmentType: z.enum(["individual", "tags"]),
+  contactIds: z.array(z.string()).optional(),
+  targetTags: z.array(z.string()).optional(),
   channels: z.array(z.string()).min(1, "Selecione pelo menos um canal."),
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   whatsappTemplateName: z.string().optional(),
+}).refine(data => {
+    if (data.segmentType === 'individual') return (data.contactIds || []).length > 0;
+    return true;
+}, {
+    message: "Selecione pelo menos um contato.",
+    path: ["contactIds"],
+}).refine(data => {
+    if (data.segmentType === 'tags') return (data.targetTags || []).length > 0;
+    return true;
+}, {
+    message: "Selecione pelo menos uma tag.",
+    path: ["targetTags"],
 }).refine(data => {
     if (data.channels.includes('email')) {
         return !!data.emailSubject && !!data.emailBody;
@@ -60,6 +76,7 @@ export default function NovaCampanhaPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [contacts, setContacts] = useState<ContactType[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
   const [whatsAppTemplates, setWhatsAppTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [templatesLoading, setTemplatesLoading] = useState(false);
@@ -68,7 +85,9 @@ export default function NovaCampanhaPage() {
     resolver: zodResolver(campaignFormSchema),
     defaultValues: {
       name: "",
+      segmentType: "individual",
       contactIds: [],
+      targetTags: [],
       channels: [],
       emailSubject: "",
       emailBody: "",
@@ -76,20 +95,22 @@ export default function NovaCampanhaPage() {
     },
   });
 
+  const segmentType = form.watch("segmentType");
   const selectedChannels = form.watch("channels") || [];
   const selectedContactIds = form.watch("contactIds") || [];
 
 
   useEffect(() => {
-    async function loadContacts() {
+    async function loadInitialData() {
       try {
-        const contactsData = await getContacts();
+        const [contactsData, tagsData] = await Promise.all([getContacts(), getAllTags()]);
         setContacts(contactsData);
+        setAllTags(tagsData);
       } catch (error) {
-        toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os contatos." });
+        toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os dados iniciais." });
       }
     }
-    loadContacts();
+    loadInitialData();
   }, [toast]);
   
   useEffect(() => {
@@ -116,7 +137,9 @@ export default function NovaCampanhaPage() {
 
     const payload = {
       name: data.name,
-      contactIds: data.contactIds,
+      segmentType: data.segmentType,
+      contactIds: data.segmentType === 'individual' ? data.contactIds : [],
+      targetTags: data.segmentType === 'tags' ? data.targetTags : [],
       channels: data.channels,
       emailContent: data.channels.includes('email') ? {
         subject: data.emailSubject,
@@ -155,57 +178,103 @@ export default function NovaCampanhaPage() {
           <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nome da Campanha</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
           
            <FormField
-                control={form.control}
-                name="contactIds"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Destinatários</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button variant="outline" role="combobox" className={cn("w-full justify-between", selectedContactIds.length === 0 && "text-muted-foreground")}>
-                            <span className="line-clamp-1">
-                              {selectedContactIds.length > 0
-                                ? `${selectedContactIds.length} contato(s) selecionado(s)`
-                                : "Selecione os contatos"}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                        <Command>
-                          <CommandInput placeholder="Buscar contato..." />
-                           <CommandList>
-                            <CommandEmpty>Nenhum contato encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              {contacts.map((contact) => (
-                                <CommandItem
-                                  value={contact.name}
-                                  key={contact.id}
-                                  onSelect={() => {
-                                    const newValue = selectedContactIds.includes(contact.id)
-                                      ? selectedContactIds.filter(id => id !== contact.id)
-                                      : [...selectedContactIds, contact.id];
-                                    field.onChange(newValue);
-                                  }}
-                                >
-                                  <Check className={cn("mr-2 h-4 w-4", selectedContactIds.includes(contact.id) ? "opacity-100" : "opacity-0")} />
-                                  <div className="flex flex-col">
-                                    <span>{contact.name}</span>
-                                    <span className="text-xs text-muted-foreground">{contact.email}</span>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              control={form.control}
+              name="segmentType"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Destinatários</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      className="flex space-x-4"
+                    >
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="individual" /></FormControl>
+                        <FormLabel className="font-normal">Contatos Individuais</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="tags" /></FormControl>
+                        <FormLabel className="font-normal">Segmentar por Tags</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {segmentType === "individual" && (
+                <FormField
+                    control={form.control}
+                    name="contactIds"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button variant="outline" role="combobox" className={cn("w-full justify-between", selectedContactIds.length === 0 && "text-muted-foreground")}>
+                                <span className="line-clamp-1">
+                                  {selectedContactIds.length > 0
+                                    ? `${selectedContactIds.length} contato(s) selecionado(s)`
+                                    : "Selecione os contatos"}
+                                </span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar contato..." />
+                               <CommandList>
+                                <CommandEmpty>Nenhum contato encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {contacts.map((contact) => (
+                                    <CommandItem
+                                      value={contact.name}
+                                      key={contact.id}
+                                      onSelect={() => {
+                                        const newValue = selectedContactIds.includes(contact.id)
+                                          ? selectedContactIds.filter(id => id !== contact.id)
+                                          : [...selectedContactIds, contact.id];
+                                        field.onChange(newValue);
+                                      }}
+                                    >
+                                      <Check className={cn("mr-2 h-4 w-4", selectedContactIds.includes(contact.id) ? "opacity-100" : "opacity-0")} />
+                                      <div className="flex flex-col">
+                                        <span>{contact.name}</span>
+                                        <span className="text-xs text-muted-foreground">{contact.email}</span>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                />
+            )}
+
+            {segmentType === "tags" && (
+                <FormField
+                    control={form.control}
+                    name="targetTags"
+                    render={({ field }) => (
+                        <FormItem>
+                           <MultiSelect
+                                options={allTags.map(tag => ({ value: tag, label: tag }))}
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                placeholder="Selecione as tags..."
+                            />
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
 
             <FormField control={form.control} name="channels" render={() => (
                 <FormItem>

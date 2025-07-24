@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Check, ChevronsUpDown, Send, ArrowLeft } from "lucide-react";
-import { Campaign, Contact, getContacts, updateCampaign } from "@/lib/firebase/firestore";
+import { Campaign, Contact, getContacts, updateCampaign, getAllTags } from "@/lib/firebase/firestore";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,13 +21,38 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface WhatsAppTemplate {
+    id: string;
+    name: string;
+    language: string;
+    status: string;
+}
 
 const campaignFormSchema = z.object({
   name: z.string().min(1, "O nome da campanha é obrigatório."),
+  segmentType: z.enum(["individual", "tags"]),
   contactIds: z.array(z.string()).optional(),
+  targetTags: z.array(z.string()).optional(),
   channels: z.array(z.string()).min(1, "Selecione pelo menos um canal."),
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
+  whatsappTemplateName: z.string().optional(),
+}).refine(data => {
+    if (data.segmentType === 'individual') return (data.contactIds || []).length > 0;
+    return true;
+}, {
+    message: "Selecione pelo menos um contato.",
+    path: ["contactIds"],
+}).refine(data => {
+    if (data.segmentType === 'tags') return (data.targetTags || []).length > 0;
+    return true;
+}, {
+    message: "Selecione pelo menos uma tag.",
+    path: ["targetTags"],
 }).refine(data => {
     if (data.channels.includes('email')) {
         return !!data.emailSubject && !!data.emailBody;
@@ -36,13 +61,22 @@ const campaignFormSchema = z.object({
 }, {
     message: "Assunto e corpo do e-mail são obrigatórios para o canal E-mail.",
     path: ["emailSubject"],
+}).refine(data => {
+    if (data.channels.includes('whatsapp')) {
+        return !!data.whatsappTemplateName;
+    }
+    return true;
+}, {
+    message: "A seleção de um modelo do WhatsApp é obrigatória.",
+    path: ["whatsappTemplateName"],
 });
+
 
 type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 
 const channelOptions = [
     { id: 'email', label: 'E-mail' },
-    { id: 'whatsapp', label: 'WhatsApp (em breve)', disabled: true },
+    { id: 'whatsapp', label: 'WhatsApp' },
 ]
 
 export default function EditCampanhaPage() {
@@ -56,11 +90,19 @@ export default function EditCampanhaPage() {
   const [isSending, setIsSending] = useState(false);
 
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [whatsAppTemplates, setWhatsAppTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+
 
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignFormSchema),
-    defaultValues: { name: "", contactIds: [], channels: [], emailSubject: "", emailBody: "" },
+    defaultValues: { name: "", segmentType: "individual", contactIds: [], targetTags: [], channels: [], emailSubject: "", emailBody: "", whatsappTemplateName: "" },
   });
+
+  const selectedChannels = form.watch("channels") || [];
+  const selectedContactIds = form.watch("contactIds") || [];
+  const segmentType = form.watch("segmentType");
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -68,20 +110,25 @@ export default function EditCampanhaPage() {
         setPageLoading(true);
         try {
             const campaignDocRef = doc(db, 'campaigns', campaignId);
-            const [contactsData, campaignDoc] = await Promise.all([
+            const [contactsData, tagsData, campaignDoc] = await Promise.all([
                 getContacts(),
+                getAllTags(),
                 getDoc(campaignDocRef)
             ]);
             setAllContacts(contactsData);
+            setAllTags(tagsData);
 
             if(campaignDoc.exists()) {
-                const campaignData = { id: campaignDoc.id, ...campaignDoc.data() } as Campaign;
+                const campaignData = campaignDoc.data() as Campaign;
                 form.reset({
                     name: campaignData.name,
+                    segmentType: campaignData.segmentType || "individual",
                     contactIds: campaignData.contactIds,
+                    targetTags: campaignData.targetTags,
                     channels: campaignData.channels,
                     emailSubject: campaignData.emailContent?.subject || "",
                     emailBody: campaignData.emailContent?.body || "",
+                    whatsappTemplateName: campaignData.whatsappContent?.templateName || "",
                 });
             } else {
                  toast({ variant: "destructive", title: "Erro", description: "Campanha não encontrada." });
@@ -96,20 +143,41 @@ export default function EditCampanhaPage() {
     fetchInitialData();
   }, [campaignId, toast, router, form]);
 
+  useEffect(() => {
+    if (selectedChannels.includes('whatsapp')) {
+      const fetchTemplates = async () => {
+        setTemplatesLoading(true);
+        try {
+          const response = await fetch('/api/whatsapp/templates');
+          if (!response.ok) throw new Error('Falha ao buscar modelos.');
+          const data = await response.json();
+          setWhatsAppTemplates(data);
+        } catch (error) {
+           toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os modelos do WhatsApp." });
+        } finally {
+            setTemplatesLoading(false);
+        }
+      };
+      fetchTemplates();
+    }
+  }, [selectedChannels, toast]);
 
-  const selectedChannels = form.watch("channels") || [];
-  const selectedContactIds = form.watch("contactIds") || [];
 
   const handleSave = async (values: CampaignFormValues) => {
      setLoading(true);
     try {
       await updateCampaign(campaignId, {
         name: values.name,
+        segmentType: values.segmentType,
         channels: values.channels as ('email' | 'whatsapp')[],
-        contactIds: values.contactIds || [],
+        contactIds: values.segmentType === 'individual' ? (values.contactIds || []) : [],
+        targetTags: values.segmentType === 'tags' ? (values.targetTags || []) : [],
         emailContent: values.channels.includes('email') ? {
           subject: values.emailSubject || "",
           body: values.emailBody || "",
+        } : undefined,
+        whatsappContent: values.channels.includes('whatsapp') ? {
+          templateName: values.whatsappTemplateName || ""
         } : undefined,
       });
       toast({ title: "Sucesso!", description: "Campanha atualizada." });
@@ -198,57 +266,104 @@ export default function EditCampanhaPage() {
               )}/>
 
               <FormField
-                    control={form.control}
-                    name="contactIds"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Destinatários</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button variant="outline" role="combobox" className={cn("w-full justify-between", selectedContactIds.length === 0 && "text-muted-foreground")}>
-                                <span className="line-clamp-1">
-                                  {selectedContactIds.length > 0
-                                    ? `${selectedContactIds.length} contato(s) selecionado(s)`
-                                    : "Selecione os contatos"}
-                                </span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
-                            <Command>
-                              <CommandInput placeholder="Buscar contato..." />
-                               <CommandList>
-                                <CommandEmpty>Nenhum contato encontrado.</CommandEmpty>
-                                <CommandGroup>
-                                  {allContacts.map((contact) => (
-                                    <CommandItem
-                                      value={contact.name}
-                                      key={contact.id}
-                                      onSelect={() => {
-                                        const newValue = selectedContactIds.includes(contact.id)
-                                          ? selectedContactIds.filter(id => id !== contact.id)
-                                          : [...selectedContactIds, contact.id];
-                                        field.onChange(newValue);
-                                      }}
-                                    >
-                                      <Check className={cn("mr-2 h-4 w-4", selectedContactIds.includes(contact.id) ? "opacity-100" : "opacity-0")} />
-                                      <div className="flex flex-col">
-                                        <span>{contact.name}</span>
-                                        <span className="text-xs text-muted-foreground">{contact.email}</span>
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  control={form.control}
+                  name="segmentType"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Destinatários</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex space-x-4"
+                        >
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                            <FormControl><RadioGroupItem value="individual" /></FormControl>
+                            <FormLabel className="font-normal">Contatos Individuais</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                            <FormControl><RadioGroupItem value="tags" /></FormControl>
+                            <FormLabel className="font-normal">Segmentar por Tags</FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {segmentType === 'individual' && (
+                    <FormField
+                        control={form.control}
+                        name="contactIds"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button variant="outline" role="combobox" className={cn("w-full justify-between", (field.value || []).length === 0 && "text-muted-foreground")}>
+                                    <span className="line-clamp-1">
+                                      {(field.value || []).length > 0
+                                        ? `${(field.value || []).length} contato(s) selecionado(s)`
+                                        : "Selecione os contatos"}
+                                    </span>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                                <Command>
+                                  <CommandInput placeholder="Buscar contato..." />
+                                   <CommandList>
+                                    <CommandEmpty>Nenhum contato encontrado.</CommandEmpty>
+                                    <CommandGroup>
+                                      {allContacts.map((contact) => (
+                                        <CommandItem
+                                          value={contact.name}
+                                          key={contact.id}
+                                          onSelect={() => {
+                                            const currentValues = field.value || [];
+                                            const newValue = currentValues.includes(contact.id)
+                                              ? currentValues.filter(id => id !== contact.id)
+                                              : [...currentValues, contact.id];
+                                            field.onChange(newValue);
+                                          }}
+                                        >
+                                          <Check className={cn("mr-2 h-4 w-4", (field.value || []).includes(contact.id) ? "opacity-100" : "opacity-0")} />
+                                          <div className="flex flex-col">
+                                            <span>{contact.name}</span>
+                                            <span className="text-xs text-muted-foreground">{contact.email}</span>
+                                          </div>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                )}
+                 {segmentType === "tags" && (
+                    <FormField
+                        control={form.control}
+                        name="targetTags"
+                        render={({ field }) => (
+                            <FormItem>
+                               <MultiSelect
+                                    options={allTags.map(tag => ({ value: tag, label: tag }))}
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                    placeholder="Selecione as tags..."
+                                />
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+
 
                 <FormField
                     control={form.control}
@@ -306,6 +421,35 @@ export default function EditCampanhaPage() {
                     )}/>
                 </div>
               )}
+                {selectedChannels.includes("whatsapp") && (
+                <div className="border p-4 rounded-md space-y-4">
+                    <h2 className="font-semibold">Conteúdo do WhatsApp</h2>
+                    <FormField
+                    control={form.control}
+                    name="whatsappTemplateName"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Modelo da Mensagem</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={templatesLoading}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder={templatesLoading ? "Carregando modelos..." : "Selecione um modelo"} />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {whatsAppTemplates.map(template => (
+                                <SelectItem key={template.id} value={template.name}>
+                                {template.name} ({template.language})
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </div>
+                )}
 
             </CardContent>
           </Card>

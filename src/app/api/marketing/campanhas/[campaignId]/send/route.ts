@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/server';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, query, where, getDocs, collection } from 'firebase-admin/firestore';
 import { Contact, Campaign } from '@/lib/firebase/firestore';
 import nodemailer from 'nodemailer';
 
@@ -25,15 +25,27 @@ export async function POST(
     }
 
     const campaign = campaignSnap.data() as Campaign & { whatsappContent?: { templateName: string } };
-
-    if (!campaign.contactIds || campaign.contactIds.length === 0) {
-        return NextResponse.json({ error: 'Nenhum contato selecionado para esta campanha.' }, { status: 400 });
-    }
     
     // 2. Buscar os contatos associados
+    let contacts: Contact[] = [];
     const contactsRef = adminDb.collection('contacts');
-    const contactsQuery = await contactsRef.where('__name__', 'in', campaign.contactIds).get();
-    const contacts: Contact[] = contactsQuery.docs.map(doc => doc.data() as Contact);
+
+    if (campaign.segmentType === 'tags' && campaign.targetTags && campaign.targetTags.length > 0) {
+        // Busca por tags
+        const contactsQuery = await contactsRef.where('tags', 'array-contains-any', campaign.targetTags).get();
+        contacts = contactsQuery.docs.map(doc => doc.data() as Contact);
+    } else {
+        // Busca por IDs individuais (legado ou individual)
+        if (!campaign.contactIds || campaign.contactIds.length === 0) {
+            return NextResponse.json({ error: 'Nenhum contato selecionado para esta campanha.' }, { status: 400 });
+        }
+        const contactsQuery = await contactsRef.where('__name__', 'in', campaign.contactIds).get();
+        contacts = contactsQuery.docs.map(doc => doc.data() as Contact);
+    }
+    
+    if (contacts.length === 0) {
+       return NextResponse.json({ error: 'Nenhum contato encontrado para os critérios da campanha.' }, { status: 400 });
+    }
 
     // 3. Disparar as mensagens
     let successfulDispatches = 0;

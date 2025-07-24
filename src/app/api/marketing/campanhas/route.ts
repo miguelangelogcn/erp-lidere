@@ -10,13 +10,19 @@ import { NextResponse } from 'next/server';
         // Construção segura do payload
         const newCampaignData: any = {
           name: body.name,
+          segmentType: body.segmentType,
           contactIds: body.contactIds || [],
+          targetTags: body.targetTags || [],
           channels: body.channels || [],
           createdAt: FieldValue.serverTimestamp(),
         };
 
         if (body.channels && body.channels.includes('email') && body.emailContent) {
           newCampaignData.emailContent = body.emailContent;
+        }
+
+        if (body.channels && body.channels.includes('whatsapp') && body.whatsappContent) {
+          newCampaignData.whatsappContent = body.whatsappContent;
         }
     
         // Log detalhado ANTES da chamada ao Firestore
