@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
-import { getContacts, Contact } from "@/lib/firebase/firestore";
+import { getContacts } from "@/lib/firebase/firestore";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 interface CampaignFormValues {
   name: string;
   contactIds: string[];
-  channels: string[]; // <-- Já está definido como array, o problema é como o form envia
+  channels: string | string[]; // O formulário pode enviar um ou outro
   emailSubject: string;
   emailBody: string;
 }
@@ -30,8 +30,8 @@ export default function NovaCampanhaPage() {
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, control, watch } = useForm<CampaignFormValues>({
     defaultValues: {
-        channels: [] // Garante que o valor inicial seja um array
-    }
+      channels: [],
+    },
   });
 
   const selectedChannels = watch("channels") || [];
@@ -48,19 +48,19 @@ export default function NovaCampanhaPage() {
     setLoading(true);
 
     // ===============================================
-    // CORREÇÃO APLICADA AQUI
+    // CORREÇÃO FINAL APLICADA AQUI
     // ===============================================
-    // Garante que 'channels' seja sempre um array, mesmo que apenas um item seja selecionado.
-    const channelsAsArray = Array.isArray(data.channels) ? data.channels : [data.channels];
+    const channelsAsArray = Array.isArray(data.channels) ? data.channels : (data.channels ? [data.channels] : []);
+    const emailIsSelected = channelsAsArray.includes('email');
 
     const payload = {
       name: data.name,
-      contactIds: data.contactIds,
-      channels: channelsAsArray, // <-- Usando a variável corrigida
-      emailContent: channelsAsArray.includes("email") ? {
+      contactIds: data.contactIds || [],
+      channels: channelsAsArray,
+      emailContent: emailIsSelected ? {
         subject: data.emailSubject,
         body: data.emailBody,
-      } : undefined,
+      } : null, // Salva como null se não for selecionado
     };
 
     try {
@@ -87,6 +87,7 @@ export default function NovaCampanhaPage() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Criar Nova Campanha</h1>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-2xl">
+        {/* ... (código do formulário permanece o mesmo) ... */}
         <div>
           <label>Nome da Campanha</label>
           <Input {...register("name", { required: true })} />
