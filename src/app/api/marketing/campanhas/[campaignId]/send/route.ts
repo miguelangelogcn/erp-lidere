@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/server';
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase-admin/firestore';
+import { serverTimestamp } from 'firebase-admin/firestore';
 import { Contact, Campaign } from '@/lib/firebase/firestore';
 import nodemailer from 'nodemailer';
 
@@ -17,8 +17,8 @@ export async function POST(
 
   try {
     // 1. Buscar os dados da campanha
-    const campaignRef = doc(adminDb, 'campaigns', campaignId);
-    const campaignSnap = await getDoc(campaignRef);
+    const campaignRef = adminDb.doc(`campaigns/${campaignId}`);
+    const campaignSnap = await campaignRef.get();
 
     if (!campaignSnap.exists) {
       return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });
@@ -32,8 +32,8 @@ export async function POST(
     
     // 2. Buscar os contatos associados
     const contactsRef = adminDb.collection('contacts');
-    const contactsSnapshot = await contactsRef.where('__name__', 'in', campaign.contactIds).get();
-    const contacts: Contact[] = contactsSnapshot.docs.map(doc => doc.data() as Contact);
+    const contactsQuery = await contactsRef.where('__name__', 'in', campaign.contactIds).get();
+    const contacts: Contact[] = contactsQuery.docs.map(doc => doc.data() as Contact);
 
     // 3. Disparar os e-mails
     let dispatchSuccessful = true;
@@ -74,8 +74,8 @@ export async function POST(
 
 
     // 4. Registrar o evento de disparo no histórico
-    const dispatchesRef = collection(adminDb, 'dispatches');
-    await addDoc(dispatchesRef, {
+    const dispatchesRef = adminDb.collection('dispatches');
+    await dispatchesRef.add({
       campaignId: campaignId,
       dispatchDate: serverTimestamp(), // Usa a data e hora do servidor
       status: dispatchSuccessful ? 'success' : 'failed',
@@ -91,8 +91,8 @@ export async function POST(
     console.error("ERRO AO DISPARAR CAMPANHA:", error);
     // Tenta registrar a falha no histórico
     try {
-      const dispatchesRef = collection(adminDb, 'dispatches');
-      await addDoc(dispatchesRef, {
+      const dispatchesRef = adminDb.collection('dispatches');
+      await dispatchesRef.add({
         campaignId: campaignId,
         dispatchDate: serverTimestamp(),
         status: 'failed',

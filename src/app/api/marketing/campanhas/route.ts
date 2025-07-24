@@ -1,6 +1,7 @@
+
 import { NextResponse } from 'next/server';
     import { adminDb } from '@/lib/firebase/server';
-    import { collection, addDoc, FieldValue } from 'firebase-admin/firestore';
+    import { FieldValue } from 'firebase-admin/firestore';
     
     export async function POST(request: Request) {
       try {
@@ -24,8 +25,8 @@ import { NextResponse } from 'next/server';
         console.log(JSON.stringify(newCampaignData, null, 2));
         console.log("===================================");
     
-        const campaignsRef = collection(adminDb, 'campaigns');
-        const docRef = await addDoc(campaignsRef, newCampaignData);
+        const campaignsRef = adminDb.collection('campaigns');
+        const docRef = await campaignsRef.add(newCampaignData);
     
         console.log(`✔️ Campanha salva com sucesso com o ID: ${docRef.id}`);
     
