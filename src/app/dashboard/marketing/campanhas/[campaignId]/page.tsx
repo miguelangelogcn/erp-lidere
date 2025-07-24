@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,13 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, Save, Check, ChevronsUpDown, Send, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { addCampaign, Contact, getContacts } from "@/lib/firebase/firestore";
+import { Campaign, Contact, getContacts, getDoc, doc, db, updateCampaign } from "@/lib/firebase/firestore";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const campaignFormSchema = z.object({
   name: z.string().min(1, "O nome da campanha é obrigatório."),
@@ -32,7 +33,7 @@ const campaignFormSchema = z.object({
     return true;
 }, {
     message: "Assunto e corpo do e-mail são obrigatórios para o canal E-mail.",
-    path: ["emailSubject"], 
+    path: ["emailSubject"],
 });
 
 type CampaignFormValues = z.infer<typeof campaignFormSchema>;
@@ -42,44 +43,68 @@ const channelOptions = [
     { id: 'whatsapp', label: 'WhatsApp (em breve)', disabled: true },
 ]
 
-export default function NovaCampanhaPage() {
+export default function EditCampanhaPage() {
   const router = useRouter();
+  const params = useParams();
+  const campaignId = params.campaignId as string;
   const { toast } = useToast();
+  
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
 
   const form = useForm<CampaignFormValues>({
     resolver: zodResolver(campaignFormSchema),
-    defaultValues: {
-      name: "",
-      contactIds: [],
-      channels: ["email"],
-      emailSubject: "",
-      emailBody: "",
-    },
+    defaultValues: { name: "", contactIds: [], channels: [], emailSubject: "", emailBody: "" },
   });
 
   useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const contactsData = await getContacts();
-        setAllContacts(contactsData);
-      } catch (error) {
-        toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os contatos." });
-      }
-    };
-    fetchContacts();
-  }, [toast]);
+    const fetchInitialData = async () => {
+        if (!campaignId) return;
+        setPageLoading(true);
+        try {
+            const campaignDocRef = doc(db, 'campaigns', campaignId);
+            const [contactsData, campaignDoc] = await Promise.all([
+                getContacts(),
+                getDoc(campaignDocRef)
+            ]);
+            setAllContacts(contactsData);
 
-  const selectedChannels = form.watch("channels");
+            if(campaignDoc.exists()) {
+                const campaignData = { id: campaignDoc.id, ...campaignDoc.data() } as Campaign;
+                setCampaign(campaignData);
+                form.reset({
+                    name: campaignData.name,
+                    contactIds: campaignData.contactIds,
+                    channels: campaignData.channels,
+                    emailSubject: campaignData.emailContent?.subject || "",
+                    emailBody: campaignData.emailContent?.body || "",
+                });
+            } else {
+                 toast({ variant: "destructive", title: "Erro", description: "Campanha não encontrada." });
+                 router.push('/dashboard/marketing/campanhas');
+            }
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os dados." });
+        } finally {
+            setPageLoading(false);
+        }
+    }
+    fetchInitialData();
+  }, [campaignId, toast, router, form]);
+
+
+  const selectedChannels = form.watch("channels") || [];
   const selectedContactIds = form.watch("contactIds") || [];
 
   const onSubmit = async (values: CampaignFormValues) => {
     setLoading(true);
     try {
-      await addCampaign({
+      await updateCampaign(campaignId, {
         name: values.name,
-        status: 'draft',
         channels: values.channels as ('email' | 'whatsapp')[],
         contactIds: values.contactIds || [],
         emailContent: values.channels.includes('email') ? {
@@ -87,19 +112,73 @@ export default function NovaCampanhaPage() {
           body: values.emailBody || "",
         } : undefined,
       });
-      toast({ title: "Sucesso!", description: "Campanha salva como rascunho." });
-      router.push("/dashboard/marketing/campanhas");
+      toast({ title: "Sucesso!", description: "Campanha atualizada." });
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar a campanha." });
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   };
 
+  const handleSendCampaign = async () => {
+      const values = form.getValues();
+      if (!values.channels.includes('email') || !values.contactIds || values.contactIds.length === 0) {
+          toast({ variant: 'destructive', title: "Atenção", description: "Selecione contatos e o canal de e-mail para enviar."})
+          return;
+      }
+
+      setIsSending(true);
+      try {
+           const response = await fetch('/api/marketing/disparos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel: 'email',
+                    contactIds: values.contactIds,
+                    subject: values.emailSubject,
+                    message: values.emailBody,
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Ocorreu um erro");
+
+            await updateCampaign(campaignId, { status: 'sent' });
+            toast({ title: "Campanha Enviada!", description: result.message });
+            router.push('/dashboard/marketing/campanhas');
+
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: "Erro ao Enviar", description: error.message});
+      } finally {
+          setIsSending(false);
+      }
+  };
+
+  if (pageLoading) {
+      return (
+          <div className="space-y-4">
+              <Skeleton className="h-8 w-48" />
+              <Card>
+                  <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
+                  <CardContent className="space-y-6">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-40 w-full" />
+                  </CardContent>
+              </Card>
+          </div>
+      )
+  }
+
   return (
     <div className="space-y-4">
+      <Button variant="ghost" onClick={() => router.back()} className="px-0 hover:bg-transparent">
+        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Campanhas
+      </Button>
       <div>
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Nova Campanha</h1>
-        <p className="text-muted-foreground">Crie o conteúdo e defina os destinatários da sua campanha.</p>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Editar Campanha</h1>
+        <p className="text-muted-foreground">Ajuste os detalhes e envie sua campanha.</p>
       </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -225,12 +304,17 @@ export default function NovaCampanhaPage() {
             </CardContent>
           </Card>
           <div className="mt-6 flex justify-end gap-2">
-            <Button variant="outline" asChild>
-                <Link href="/dashboard/marketing/campanhas">Cancelar</Link>
-            </Button>
-            <Button type="submit" disabled={loading}>
+            <Button variant="outline" type="submit" disabled={loading || isSending}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Salvar Campanha
+              Salvar Alterações
+            </Button>
+            <Button 
+                type="button" 
+                onClick={handleSendCampaign}
+                disabled={loading || isSending || campaign?.status === 'sent'}
+            >
+              {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {campaign?.status === 'sent' ? 'Campanha Já Enviada' : 'Salvar e Enviar'}
             </Button>
           </div>
         </form>
