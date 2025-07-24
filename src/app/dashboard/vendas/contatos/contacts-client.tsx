@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
@@ -38,8 +39,10 @@ export function ContactsClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
   const [isGrantAccessOpen, setIsGrantAccessOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const { toast } = useToast();
@@ -51,6 +54,7 @@ export function ContactsClient() {
         setPageLoading(true);
         const data = await getContacts();
         setContacts(data);
+        setSelectedRowKeys([]);
     } catch (error) {
         console.error("Error fetching contacts:", error);
         toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar os contatos." });
@@ -144,10 +148,44 @@ export function ContactsClient() {
     }
   }
 
+  const handleBulkDeleteConfirm = async () => {
+    setLoading(true);
+    try {
+        const response = await fetch('/api/contacts/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contactIds: selectedRowKeys }),
+        });
+        const result = await response.json();
+        if(!response.ok) throw new Error(result.error || 'Falha na exclusão em lote');
+        toast({ title: "Sucesso", description: `${selectedRowKeys.length} contato(s) excluído(s).` });
+        await refreshData();
+        setIsBulkDeleteAlertOpen(false);
+    } catch(error) {
+        toast({ variant: "destructive", title: "Erro", description: (error as Error).message });
+    } finally {
+        setLoading(false);
+    }
+  }
+
   return (
     <>
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" disabled={selectedRowKeys.length === 0}>
+                            Ações <MoreHorizontal className="ml-2 h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => setIsBulkDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
+                           <Trash className="mr-2 h-4 w-4" /> Excluir Selecionados ({selectedRowKeys.length})
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
             <Button onClick={() => handleDialogOpen(null)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Adicionar Contato
@@ -218,6 +256,19 @@ export function ContactsClient() {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+              <AlertDialogDescription>Essa ação não pode ser desfeita. Isso excluirá permanentemente os {selectedRowKeys.length} contatos selecionados.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDeleteConfirm} disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Excluir Contatos</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader><CardTitle>Lista de Contatos</CardTitle></CardHeader>
@@ -232,6 +283,18 @@ export function ContactsClient() {
             <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[50px]">
+                        <Checkbox 
+                            checked={selectedRowKeys.length > 0 && selectedRowKeys.length === contacts.length}
+                            onCheckedChange={(checked) => {
+                                if(checked) {
+                                    setSelectedRowKeys(contacts.map(c => c.id));
+                                } else {
+                                    setSelectedRowKeys([]);
+                                }
+                            }}
+                        />
+                    </TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
@@ -241,7 +304,19 @@ export function ContactsClient() {
                 </TableHeader>
                 <TableBody>
                 {contacts.map((contact) => (
-                    <TableRow key={contact.id}>
+                    <TableRow key={contact.id} data-state={selectedRowKeys.includes(contact.id) && "selected"}>
+                      <TableCell>
+                          <Checkbox 
+                            checked={selectedRowKeys.includes(contact.id)}
+                            onCheckedChange={(checked) => {
+                                if(checked) {
+                                    setSelectedRowKeys(prev => [...prev, contact.id]);
+                                } else {
+                                    setSelectedRowKeys(prev => prev.filter(id => id !== contact.id));
+                                }
+                            }}
+                          />
+                      </TableCell>
                       <TableCell className="font-medium">{contact.name}</TableCell>
                       <TableCell>{contact.email}</TableCell>
                       <TableCell>{contact.phone}</TableCell>
