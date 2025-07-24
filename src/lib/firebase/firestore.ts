@@ -1,3 +1,4 @@
+
 // src/lib/firebase/firestore.ts
 
 import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch, Timestamp } from "firebase/firestore";
@@ -646,6 +647,7 @@ export interface Campaign {
 export interface Dispatch {
   id: string;
   campaignId: string;
+  campaignName: string;
   status: 'queued' | 'processing' | 'completed' | 'failed';
   totalContacts: number;
   processedContacts: number;
@@ -674,6 +676,18 @@ export async function getDispatchesByCampaignId(campaignId: string): Promise<Dis
         dispatchDate: doc.data().dispatchDate.toDate()
     } as Dispatch)).sort((a,b) => b.dispatchDate - a.dispatchDate);
 }
+
+export function getOngoingDispatches(callback: (dispatches: Dispatch[]) => void): () => void {
+    const q = query(collection(db, 'dispatches'), where('status', 'in', ['processing', 'queued']));
+    return onSnapshot(q, (querySnapshot) => {
+        const dispatches = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as Dispatch));
+        callback(dispatches);
+    });
+}
+
 
 export async function getAllTags(): Promise<string[]> {
     const contactsSnapshot = await getDocs(collection(db, 'contacts'));

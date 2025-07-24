@@ -1,8 +1,8 @@
 
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/server';
-import { FieldValue, query, where, getDocs, collection } from 'firebase-admin/firestore';
-import { Contact, Campaign } from '@/lib/firebase/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { Campaign } from '@/lib/firebase/firestore';
 
 export async function POST(
   request: Request,
@@ -31,11 +31,10 @@ export async function POST(
 
     if (campaign.segmentType === 'tags' && campaign.targetTags && campaign.targetTags.length > 0) {
         contactsQuery = await contactsRef.where('tags', 'array-contains-any', campaign.targetTags).get();
-    } else {
-        if (!campaign.contactIds || campaign.contactIds.length === 0) {
-            return NextResponse.json({ error: 'Nenhum contato selecionado para esta campanha.' }, { status: 400 });
-        }
+    } else if (campaign.segmentType === 'individual' && campaign.contactIds && campaign.contactIds.length > 0) {
         contactsQuery = await contactsRef.where('__name__', 'in', campaign.contactIds).get();
+    } else {
+        return NextResponse.json({ error: 'Nenhum contato ou critério de tag selecionado para esta campanha.' }, { status: 400 });
     }
     
     const totalContacts = contactsQuery.size;
@@ -48,12 +47,14 @@ export async function POST(
     const dispatchesRef = adminDb.collection('dispatches');
     await dispatchesRef.add({
       campaignId: campaignId,
+      campaignName: campaign.name, // Adicionar o nome da campanha
       status: 'queued',
       totalContacts: totalContacts,
       processedContacts: 0,
       createdAt: FieldValue.serverTimestamp(),
       startedAt: null,
       completedAt: null,
+      error: null,
     });
 
     return NextResponse.json({ message: 'Campanha enfileirada para disparo com sucesso!' });

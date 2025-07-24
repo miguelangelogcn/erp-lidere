@@ -3,15 +3,68 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCampaigns, Campaign } from '@/lib/firebase/firestore';
+import { getCampaigns, Campaign, getOngoingDispatches, Dispatch } from '@/lib/firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Loader2, Edit, History, Send, Trash } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { MoreHorizontal, Loader2, Edit, History, Send, Trash, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+
+function OngoingDispatches() {
+    const [dispatches, setDispatches] = useState<Dispatch[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const unsubscribe = getOngoingDispatches((ongoingDispatches) => {
+            setDispatches(ongoingDispatches);
+            setLoading(false);
+        });
+
+        return () => unsubscribe(); // Cleanup listener on component unmount
+    }, []);
+
+    if (loading) {
+        return (
+            <Card>
+                <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
+                <CardContent><Skeleton className="h-10 w-full" /></CardContent>
+            </Card>
+        )
+    }
+    
+    if (dispatches.length === 0) {
+        return null; // Don't render anything if there are no ongoing dispatches
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Disparos em Andamento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {dispatches.map(dispatch => {
+                    const progressValue = dispatch.totalContacts > 0 ? (dispatch.processedContacts / dispatch.totalContacts) * 100 : 0;
+                    return (
+                        <div key={dispatch.id}>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="font-medium">{dispatch.campaignName}</span>
+                                <span className="text-sm text-muted-foreground">{dispatch.processedContacts} / {dispatch.totalContacts}</span>
+                            </div>
+                            <Progress value={progressValue} />
+                            <p className="text-xs text-muted-foreground mt-1 capitalize">Status: {dispatch.status}</p>
+                        </div>
+                    )
+                })}
+            </CardContent>
+        </Card>
+    )
+}
+
 
 export default function CampanhasPage() {
   const router = useRouter();
@@ -46,9 +99,9 @@ export default function CampanhasPage() {
         method: 'POST',
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Falha ao disparar.");
+      if (!response.ok) throw new Error(result.error || "Falha ao enfileirar campanha.");
 
-      toast({ title: "Sucesso!", description: "Disparo registrado! O envio está em andamento." });
+      toast({ title: "Sucesso!", description: "Campanha enfileirada para disparo." });
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: (error as Error).message });
     } finally {
@@ -92,13 +145,19 @@ export default function CampanhasPage() {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="font-headline text-3xl font-bold tracking-tight">Campanhas de Marketing</h1>
+            <div>
+                <h1 className="font-headline text-3xl font-bold tracking-tight">Campanhas de Marketing</h1>
+                <p className="text-muted-foreground">Crie, gerencie e dispare suas campanhas de e-mail e WhatsApp.</p>
+            </div>
           <Button onClick={() => router.push('/dashboard/marketing/campanhas/nova')}>
+            <PlusCircle className="mr-2 h-4 w-4" />
             Criar Nova Campanha
           </Button>
         </div>
+        
+        <OngoingDispatches />
 
         <div className="border rounded-md">
           <Table>
@@ -122,7 +181,7 @@ export default function CampanhasPage() {
                 campaigns.map(campaign => (
                   <TableRow key={campaign.id}>
                     <TableCell className="font-medium">{campaign.name}</TableCell>
-                    <TableCell>{(campaign.contactIds || []).length}</TableCell>
+                    <TableCell>{(campaign.contactIds?.length || 0) > 0 ? (campaign.contactIds?.length) : 'Tags'}</TableCell>
                     <TableCell>{(campaign.channels || []).join(', ')}</TableCell>
                     <TableCell>{formatDate(campaign.createdAt)}</TableCell>
                     <TableCell className="text-right">
