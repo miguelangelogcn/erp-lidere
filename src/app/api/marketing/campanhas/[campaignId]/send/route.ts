@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/server';
-import { serverTimestamp } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import { Contact, Campaign } from '@/lib/firebase/firestore';
 import nodemailer from 'nodemailer';
 
@@ -77,7 +77,7 @@ export async function POST(
     const dispatchesRef = adminDb.collection('dispatches');
     await dispatchesRef.add({
       campaignId: campaignId,
-      dispatchDate: serverTimestamp(), // Usa a data e hora do servidor
+      dispatchDate: FieldValue.serverTimestamp(), // Usa a data e hora do servidor
       status: dispatchSuccessful ? 'success' : 'failed',
     });
 
@@ -94,7 +94,7 @@ export async function POST(
       const dispatchesRef = adminDb.collection('dispatches');
       await dispatchesRef.add({
         campaignId: campaignId,
-        dispatchDate: serverTimestamp(),
+        dispatchDate: FieldValue.serverTimestamp(),
         status: 'failed',
         error: error.message,
       });
