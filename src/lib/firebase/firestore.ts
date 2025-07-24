@@ -630,7 +630,9 @@ export async function deleteFinancialDebt(id: string) {
 export interface Campaign {
   id: string;
   name: string;
-  contactIds: string[];
+  contactIds?: string[];
+  segmentType: 'individual' | 'tags';
+  targetTags?: string[];
   channels: ('email' | 'whatsapp')[];
   emailContent?: {
     subject: string;
@@ -671,4 +673,16 @@ export async function getDispatchesByCampaignId(campaignId: string): Promise<Dis
     } as Dispatch)).sort((a,b) => b.dispatchDate - a.dispatchDate);
 }
 
+export async function getAllTags(): Promise<string[]> {
+    const contactsSnapshot = await getDocs(collection(db, 'contacts'));
+    const allTags = new Set<string>();
+    contactsSnapshot.forEach(doc => {
+        const contact = doc.data() as Contact;
+        if (contact.tags && Array.isArray(contact.tags)) {
+            contact.tags.forEach(tag => allTags.add(tag));
+        }
+    });
+    return Array.from(allTags).sort();
+}
     
+
