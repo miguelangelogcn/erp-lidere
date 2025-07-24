@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/server';
-import { Contact } from '@/lib/firebase/firestore';
+import { adminDb, getDoc, doc, updateDoc } from '@/lib/firebase/server';
+import { Contact, Campaign } from '@/lib/firebase/firestore';
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
 
-// Schema para validar os dados recebidos
 const dispatchSchema = z.object({
-  contactIds: z.array(z.string()).min(1, 'Pelo menos um contato deve ser selecionado.'),
-  channel: z.enum(['email', 'whatsapp']),
-  subject: z.string().optional(),
-  message: z.string().min(1, 'A mensagem não pode estar vazia.'),
+  campaignId: z.string().min(1, 'O ID da campanha é obrigatório.'),
 });
 
 export async function POST(request: Request) {
@@ -21,60 +17,76 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: validation.error.flatten() }, { status: 400 });
     }
 
-    const { contactIds, channel, subject, message } = validation.data;
+    const { campaignId } = validation.data;
 
-    // 1. Buscar os contatos do Firestore
+    // 1. Buscar a campanha no Firestore
+    const campaignRef = doc(adminDb, 'campaigns', campaignId);
+    const campaignDoc = await getDoc(campaignRef);
+
+    if (!campaignDoc.exists()) {
+        return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });
+    }
+    const campaign = campaignDoc.data() as Campaign;
+    
+    // 2. Validar se a campanha pode ser enviada
+    if (campaign.status === 'sent') {
+         return NextResponse.json({ error: 'Esta campanha já foi enviada.' }, { status: 400 });
+    }
+    if (!campaign.contactIds || campaign.contactIds.length === 0) {
+        return NextResponse.json({ error: 'Nenhum contato selecionado para esta campanha.' }, { status: 400 });
+    }
+
+    // 3. Buscar os contatos do Firestore
     const contactsRef = adminDb.collection('contacts');
-    const querySnapshot = await contactsRef.where('__name__', 'in', contactIds).get();
+    const querySnapshot = await contactsRef.where('__name__', 'in', campaign.contactIds).get();
 
     if (querySnapshot.empty) {
       return NextResponse.json({ error: 'Nenhum contato encontrado com os IDs fornecidos.' }, { status: 404 });
     }
-
     const contacts: Contact[] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
 
-    // 2. Lógica de disparo baseada no canal
-    if (channel === 'email') {
-      if (!subject) {
-        return NextResponse.json({ error: 'O assunto é obrigatório para e-mails.' }, { status: 400 });
+    // 4. Lógica de disparo baseada nos canais da campanha
+    if (campaign.channels.includes('email')) {
+      const emailContent = campaign.emailContent;
+      if (!emailContent || !emailContent.subject || !emailContent.body) {
+        return NextResponse.json({ error: 'Conteúdo do e-mail (assunto e corpo) não definido na campanha.' }, { status: 400 });
       }
 
-      // Configurar o Nodemailer com as variáveis de ambiente
       const transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST,
         port: Number(process.env.EMAIL_PORT),
-        secure: Number(process.env.EMAIL_PORT) === 465, // true para porta 465, false para outras
+        secure: Number(process.env.EMAIL_PORT) === 465,
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS,
         },
       });
 
-      // Enviar e-mails em paralelo
-      const emailPromises = contacts.map(contact => {
-        if (contact.email) {
+      const emailPromises = contacts
+        .filter(contact => contact.email) // Garante que apenas contatos com email sejam processados
+        .map(contact => {
           return transporter.sendMail({
             from: process.env.EMAIL_FROM,
             to: contact.email,
-            subject: subject,
-            text: message, // Para e-mails de texto simples
+            subject: emailContent.subject,
+            text: emailContent.body,
           });
-        }
-        return Promise.resolve();
-      });
+        });
 
       await Promise.all(emailPromises);
-
-    } else if (channel === 'whatsapp') {
-      // Lógica do WhatsApp (a ser implementada no futuro)
-      console.log('Disparo para WhatsApp ainda não implementado.');
+    }
+    
+    if (campaign.channels.includes('whatsapp')) {
+        // Lógica do WhatsApp no futuro
     }
 
-    return NextResponse.json({ message: `Disparo de e-mail realizado com sucesso para ${contacts.length} contato(s)!` });
+    // 5. Atualizar o status da campanha para 'sent'
+    await updateDoc(campaignRef, { status: 'sent' });
+
+    return NextResponse.json({ message: `Campanha disparada com sucesso para ${contacts.length} contato(s)!` });
 
   } catch (error: any) {
-    // Agora, se houver um erro, será específico do e-mail
-    console.error('ERRO FINAL NO DISPARO DE E-MAIL:', error);
-    return NextResponse.json({ error: 'Falha ao enviar e-mails.', details: error.message }, { status: 500 });
+    console.error('ERRO NO DISPARO DE CAMPANHA:', error);
+    return NextResponse.json({ error: 'Falha ao disparar a campanha.', details: error.message }, { status: 500 });
   }
 }

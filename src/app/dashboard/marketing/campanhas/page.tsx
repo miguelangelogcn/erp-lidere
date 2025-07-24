@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, PlusCircle, Edit, Trash, Loader2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, PlusCircle, Edit, Trash, Loader2, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -18,6 +18,7 @@ export default function CampanhasPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isSendAlertOpen, setIsSendAlertOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const router = useRouter();
@@ -43,6 +44,11 @@ export default function CampanhasPage() {
     setSelectedCampaign(campaign);
     setIsDeleteAlertOpen(true);
   };
+  
+  const handleSendRequest = (campaign: Campaign) => {
+    setSelectedCampaign(campaign);
+    setIsSendAlertOpen(true);
+  }
 
   const handleDeleteConfirm = async () => {
     if (!selectedCampaign) return;
@@ -58,6 +64,29 @@ export default function CampanhasPage() {
       setIsDeleteAlertOpen(false);
     }
   };
+  
+  const handleSendConfirm = async () => {
+    if(!selectedCampaign) return;
+    setActionLoading(true);
+    try {
+      const response = await fetch('/api/marketing/disparos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: selectedCampaign.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Falha ao disparar campanha');
+
+      toast({ title: "Sucesso!", description: result.message });
+      await fetchCampaigns();
+
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: "Erro ao Enviar", description: error.message});
+    } finally {
+        setActionLoading(false);
+        setIsSendAlertOpen(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -122,6 +151,16 @@ export default function CampanhasPage() {
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
+                             {campaign.status === 'draft' && (
+                                <>
+                                 <DropdownMenuSeparator />
+                                 <DropdownMenuItem onClick={() => handleSendRequest(campaign)}>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Disparar Campanha
+                                </DropdownMenuItem>
+                               </>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleDeleteRequest(campaign)} className="text-destructive focus:text-destructive">
                               <Trash className="mr-2 h-4 w-4" />
                               Excluir
@@ -153,6 +192,22 @@ export default function CampanhasPage() {
               <AlertDialogAction onClick={handleDeleteConfirm} disabled={actionLoading}>
                 {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+       <AlertDialog open={isSendAlertOpen} onOpenChange={setIsSendAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Disparo?</AlertDialogTitle>
+              <AlertDialogDescription>A campanha será enviada para {selectedCampaign?.contactIds.length} contato(s). Esta ação não pode ser desfeita.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSendConfirm} disabled={actionLoading}>
+                {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Enviar
               </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
