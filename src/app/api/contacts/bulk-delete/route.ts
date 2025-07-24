@@ -38,3 +38,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Falha na exclusão em lote.", details: error.message }, { status: 500 });
   }
 }
+
+    

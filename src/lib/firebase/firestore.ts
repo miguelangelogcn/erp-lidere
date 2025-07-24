@@ -1,13 +1,11 @@
 
 // src/lib/firebase/firestore.ts
 
-import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch, Timestamp } from "firebase/firestore";
 import { db } from "./client"; // Importa a conexão correta do cliente
-import { Timestamp } from "firebase/firestore";
 import { deleteUser } from "firebase/auth";
 
 // Common Interfaces
-export type { Timestamp };
 
 export interface Role {
     id: string;
@@ -392,6 +390,7 @@ export interface Contact {
   email: string;
   phone?: string;
   userId?: string;
+  tags?: string[];
 }
 export async function getContacts(): Promise<Contact[]> {
   const contactsCol = collection(db, "contacts");
@@ -403,8 +402,11 @@ export async function getStudentsFromContacts(): Promise<Contact[]> {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
 }
-export async function addContact(data: Omit<Contact, 'id'>) {
-    await addDoc(collection(db, "contacts"), data);
+export async function addContact(data: Omit<Contact, 'id' | 'userId' | 'tags'> & { tags?: string[] }) {
+    await addDoc(collection(db, "contacts"), {
+        ...data,
+        tags: data.tags || []
+    });
 }
 export async function updateContact(id: string, data: Partial<Contact>) {
     const contactRef = doc(db, "contacts", id);
@@ -635,6 +637,9 @@ export interface Campaign {
     body: string;
   };
   createdAt: any;
+  whatsappContent?: {
+      templateName: string;
+  }
 }
 
 export interface Dispatch {
@@ -665,3 +670,5 @@ export async function getDispatchesByCampaignId(campaignId: string): Promise<Dis
         dispatchDate: doc.data().dispatchDate.toDate()
     } as Dispatch)).sort((a,b) => b.dispatchDate - a.dispatchDate);
 }
+
+    

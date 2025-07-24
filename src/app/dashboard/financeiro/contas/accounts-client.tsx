@@ -8,6 +8,7 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon, PlusCircle, Edit, Trash, MoreHorizontal, Loader2 } from "lucide-react";
+import { Timestamp } from "firebase/firestore";
 
 import {
   FinancialAccount,
@@ -17,7 +18,6 @@ import {
   addFinancialAccount,
   updateFinancialAccount,
   deleteFinancialAccount,
-  Timestamp,
 } from "@/lib/firebase/firestore";
 
 import { cn, formatCurrency } from "@/lib/utils";
@@ -344,4 +344,3 @@ function AccountsTable({ accounts, loading, onEdit, onDelete }: AccountsTablePro
   );
 }
 
-    
