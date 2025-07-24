@@ -1,4 +1,3 @@
-
 // src/lib/firebase/firestore.ts
 
 import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch, Timestamp } from "firebase/firestore";
@@ -647,8 +646,11 @@ export interface Campaign {
 export interface Dispatch {
   id: string;
   campaignId: string;
-  dispatchDate: any;
-  status: 'success' | 'failed';
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  totalContacts: number;
+  processedContacts: number;
+  startedAt: any; // Timestamp
+  completedAt: any; // Timestamp
   error?: string;
 }
 
@@ -685,4 +687,3 @@ export async function getAllTags(): Promise<string[]> {
     return Array.from(allTags).sort();
 }
     
-
