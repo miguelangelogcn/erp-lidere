@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
     import { adminDb } from '@/lib/firebase/server';
-    import { collection, addDoc, serverTimestamp } from 'firebase-admin/firestore';
+    import { collection, addDoc, FieldValue } from 'firebase-admin/firestore';
     
     export async function POST(request: Request) {
       try {
@@ -11,7 +11,7 @@ import { NextResponse } from 'next/server';
           name: body.name,
           contactIds: body.contactIds || [],
           channels: body.channels || [],
-          createdAt: serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         };
 
         if (body.channels && body.channels.includes('email') && body.emailContent) {
