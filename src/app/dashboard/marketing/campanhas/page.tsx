@@ -69,10 +69,8 @@ export default function CampanhasPage() {
     if(!selectedCampaign) return;
     setActionLoading(true);
     try {
-      const response = await fetch('/api/marketing/disparos', {
+      const response = await fetch(`/api/marketing/campanhas/${selectedCampaign.id}/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId: selectedCampaign.id }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Falha ao disparar campanha');
