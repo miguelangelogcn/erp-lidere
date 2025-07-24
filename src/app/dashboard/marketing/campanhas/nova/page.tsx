@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
-import { MultiSelect } from "@/components/ui/multi-select"; // Supondo que você tenha este componente
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface CampaignFormValues {
   name: string;
@@ -43,15 +43,23 @@ export default function NovaCampanhaPage() {
   const onSubmit = async (data: CampaignFormValues) => {
     setLoading(true);
 
-    const payload = {
+    const payload: {
+      name: string;
+      contactIds: string[];
+      channels: string[];
+      emailContent?: { subject: string; body: string };
+    } = {
       name: data.name,
       contactIds: data.contactIds,
       channels: data.channels,
-      emailContent: data.channels.includes("email") ? {
+    };
+
+    if (data.channels.includes("email")) {
+      payload.emailContent = {
         subject: data.emailSubject,
         body: data.emailBody,
-      } : undefined,
-    };
+      };
+    }
 
     try {
       const response = await fetch('/api/marketing/campanhas', {
@@ -62,8 +70,9 @@ export default function NovaCampanhaPage() {
 
       if (!response.ok) throw new Error("Falha ao salvar a campanha.");
       
+      const result = await response.json();
       toast({ title: "Sucesso!", description: "Campanha criada com sucesso." });
-      router.push('/dashboard/marketing/campanhas');
+      router.push(`/dashboard/marketing/campanhas/${result.campaignId}`);
 
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: (error as Error).message });
@@ -85,6 +94,7 @@ export default function NovaCampanhaPage() {
           <Controller
             control={control}
             name="contactIds"
+            defaultValue={[]}
             render={({ field }) => (
               <MultiSelect
                 options={contacts}
@@ -114,11 +124,11 @@ export default function NovaCampanhaPage() {
             <h2 className="font-semibold">Conteúdo do E-mail</h2>
             <div>
               <label>Assunto</label>
-              <Input {...register("emailSubject", { required: true })} />
+              <Input {...register("emailSubject", { required: selectedChannels.includes("email") })} />
             </div>
             <div>
               <label>Corpo da Mensagem</label>
-              <Textarea {...register("emailBody", { required: true })} rows={8} />
+              <Textarea {...register("emailBody", { required: selectedChannels.includes("email") })} rows={8} />
             </div>
           </div>
         )}

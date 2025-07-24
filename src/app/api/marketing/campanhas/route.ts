@@ -8,11 +8,16 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
+    // Basic validation, can be expanded with Zod
+    if (!body.name || !body.contactIds || !body.channels) {
+        return NextResponse.json({ error: 'Dados da campanha incompletos.' }, { status: 400 });
+    }
+
     const newCampaignData = {
       name: body.name,
       contactIds: body.contactIds,
       channels: body.channels,
-      emailContent: body.emailContent,
+      emailContent: body.emailContent || null, // Ensure it's null not undefined
       createdAt: serverTimestamp(),
     };
 

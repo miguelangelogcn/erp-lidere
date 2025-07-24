@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -7,7 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Loader2, Edit, History, Send } from 'lucide-react';
+import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CampanhasPage() {
   const router = useRouter();
@@ -49,18 +52,19 @@ export default function CampanhasPage() {
     }
   };
 
-  // Função segura para formatar a data
   const formatDate = (timestamp: any) => {
-    if (timestamp && typeof timestamp.toDate === 'function') {
-      return new Date(timestamp.toDate()).toLocaleDateString('pt-BR');
-    }
-    return 'Pendente'; // ou outra string padrão
+    try {
+        if (timestamp && typeof timestamp.toDate === 'function') {
+            return format(timestamp.toDate(), 'dd/MM/yyyy');
+        }
+    } catch (e) {}
+    return 'Data inválida';
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Campanhas de Marketing</h1>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Campanhas de Marketing</h1>
         <Button onClick={() => router.push('/dashboard/marketing/campanhas/nova')}>
           Criar Nova Campanha
         </Button>
@@ -79,13 +83,17 @@ export default function CampanhasPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center">Carregando...</TableCell></TableRow>
-            ) : (
+              Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i}>
+                    <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
+                </TableRow>
+              ))
+            ) : campaigns.length > 0 ? (
               campaigns.map(campaign => (
                 <TableRow key={campaign.id}>
-                  <TableCell>{campaign.name}</TableCell>
-                  <TableCell>{campaign.contactIds.length}</TableCell>
-                  <TableCell>{campaign.channels.join(', ')}</TableCell>
+                  <TableCell className="font-medium">{campaign.name}</TableCell>
+                  <TableCell>{(campaign.contactIds || []).length}</TableCell>
+                  <TableCell>{(campaign.channels || []).join(', ')}</TableCell>
                   <TableCell>{formatDate(campaign.createdAt)}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -99,17 +107,22 @@ export default function CampanhasPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDispatch(campaign.id)}>
-                          Disparar
+                        <DropdownMenuItem onClick={() => router.push(`/dashboard/marketing/campanhas/${campaign.id}`)}>
+                            <Edit className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem disabled>
-                          Ver Histórico
+                        <DropdownMenuItem onClick={() => handleDispatch(campaign.id)}>
+                          <Send className="mr-2 h-4 w-4" /> Disparar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/dashboard/marketing/campanhas/${campaign.id}/historico`)}>
+                          <History className="mr-2 h-4 w-4" /> Ver Histórico
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
+            ) : (
+                 <TableRow><TableCell colSpan={5} className="h-24 text-center">Nenhuma campanha criada.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
