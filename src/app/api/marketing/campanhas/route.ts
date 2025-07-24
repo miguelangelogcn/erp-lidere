@@ -1,24 +1,46 @@
 import { NextResponse } from 'next/server';
+    import { adminDb } from '@/lib/firebase/server';
+    import { collection, addDoc, serverTimestamp } from 'firebase-admin/firestore';
+    
+    export async function POST(request: Request) {
+      try {
+        const body = await request.json();
+    
+        // Construção segura do payload
+        const newCampaignData: any = {
+          name: body.name,
+          contactIds: body.contactIds || [],
+          channels: body.channels || [],
+          createdAt: serverTimestamp(),
+        };
 
-export async function POST(request: Request) {
-  try {
-    // Log inicial para provar que a rota foi chamada
-    console.log("===================================");
-    console.log("API DE CRIAÇÃO DE CAMPANHA FOI ACIONADA");
-    console.log("===================================");
-
-    // Tenta ler o corpo da requisição para verificar se há erro no parsing
-    const body = await request.json();
-    console.log("DADOS RECEBIDOS DO FORMULÁRIO:", body);
-
-    // Retorna uma resposta de sucesso para o frontend
-    return NextResponse.json({ 
-      message: "Teste da API bem-sucedido! A rota foi chamada e os dados foram recebidos." 
-    });
-
-  } catch (error: any) {
-    // Se o erro estiver no parsing do JSON ou em outro lugar, ele será logado aqui
-    console.error("ERRO DENTRO DA API DE TESTE:", error);
-    return NextResponse.json({ error: 'Falha dentro da API de teste.' }, { status: 500 });
-  }
-}
+        if (body.channels && body.channels.includes('email') && body.emailContent) {
+          newCampaignData.emailContent = body.emailContent;
+        }
+    
+        // Log detalhado ANTES da chamada ao Firestore
+        console.log("===================================");
+        console.log("TENTANDO SALVAR OS SEGUINTES DADOS NO FIRESTORE:");
+        console.log(JSON.stringify(newCampaignData, null, 2));
+        console.log("===================================");
+    
+        const campaignsRef = collection(adminDb, 'campaigns');
+        const docRef = await addDoc(campaignsRef, newCampaignData);
+    
+        console.log(`✔️ Campanha salva com sucesso com o ID: ${docRef.id}`);
+    
+        return NextResponse.json({ message: 'Campanha criada com sucesso!', campaignId: docRef.id });
+    
+      } catch (error: any) {
+        // Log de erro aprimorado
+        console.error("===================================");
+        console.error("❌ ERRO AO SALVAR CAMPANHA NO FIRESTORE:");
+        console.error("Código do Erro:", error.code);
+        console.error("Mensagem do Erro:", error.message);
+        console.error("Objeto de Erro Completo:", error);
+        console.error("===================================");
+        
+        return NextResponse.json({ error: 'Falha ao salvar a campanha no banco de dados.', details: error.message }, { status: 500 });
+      }
+    }
+    
