@@ -94,6 +94,8 @@ export default function NovaCampanhaPage() {
       whatsappTemplateName: "",
     },
   });
+  
+  const { setValue } = form;
 
   const segmentType = form.watch("segmentType");
   const selectedChannels = form.watch("channels") || [];
@@ -169,6 +171,16 @@ export default function NovaCampanhaPage() {
       setLoading(false);
     }
   };
+  
+  const handleSelectAllContacts = () => {
+    const allContactIds = contacts.map(c => c.id);
+    setValue('contactIds', allContactIds);
+  };
+
+  const handleClearAllContacts = () => {
+    setValue('contactIds', []);
+  };
+
 
   return (
     <div className="p-6">
@@ -185,7 +197,11 @@ export default function NovaCampanhaPage() {
                   <FormLabel>Destinatários</FormLabel>
                   <FormControl>
                     <RadioGroup
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setValue('contactIds', []);
+                        setValue('targetTags', []);
+                      }}
                       defaultValue={field.value}
                       className="flex space-x-4"
                     >
@@ -210,6 +226,13 @@ export default function NovaCampanhaPage() {
                     name="contactIds"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
+                        <div className="flex justify-between items-center">
+                            <FormLabel>Contatos</FormLabel>
+                            <div className="space-x-2">
+                                <Button type="button" variant="link" className="p-0 h-auto" onClick={handleSelectAllContacts}>Selecionar Todos</Button>
+                                <Button type="button" variant="link" className="p-0 h-auto" onClick={handleClearAllContacts}>Limpar Seleção</Button>
+                            </div>
+                        </div>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -264,6 +287,7 @@ export default function NovaCampanhaPage() {
                     name="targetTags"
                     render={({ field }) => (
                         <FormItem>
+                            <FormLabel>Tags</FormLabel>
                            <MultiSelect
                                 options={allTags.map(tag => ({ value: tag, label: tag }))}
                                 onValueChange={field.onChange}
