@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +8,6 @@ import { Campaign, getCampaigns, deleteCampaign } from "@/lib/firebase/firestore
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, Edit, Trash, Loader2, Send, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -78,7 +78,8 @@ export default function CampanhasPage() {
       if (!response.ok) throw new Error(result.error || 'Falha ao disparar campanha');
 
       toast({ title: "Sucesso!", description: result.message });
-      await fetchCampaigns();
+      // We don't need to refetch since the status is now in a different collection
+      // await fetchCampaigns(); 
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: "Erro ao Enviar", description: error.message});
@@ -93,7 +94,7 @@ export default function CampanhasPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight">Campanhas de Marketing</h1>
-          <p className="text-muted-foreground">Crie e gerencie suas campanhas de e-mail e WhatsApp.</p>
+          <p className="text-muted-foreground">Crie, gerencie e dispare suas campanhas.</p>
         </div>
         <Button onClick={() => router.push('/dashboard/marketing/campanhas/nova')}>
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -104,7 +105,7 @@ export default function CampanhasPage() {
       <Card>
         <CardHeader>
           <CardTitle>Campanhas Salvas</CardTitle>
-          <CardDescription>Visualize, edite ou envie suas campanhas.</CardDescription>
+          <CardDescription>Visualize, edite ou dispare suas campanhas.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -129,8 +130,8 @@ export default function CampanhasPage() {
                   campaigns.map((campaign) => (
                     <TableRow key={campaign.id}>
                       <TableCell className="font-medium">{campaign.name}</TableCell>
-                      <TableCell>{campaign.contactIds.length}</TableCell>
-                      <TableCell className="capitalize">{campaign.channels.join(', ')}</TableCell>
+                      <TableCell>{(campaign.contactIds || []).length}</TableCell>
+                      <TableCell className="capitalize">{(campaign.channels || []).join(', ')}</TableCell>
                       <TableCell>{campaign.createdAt ? format(campaign.createdAt.toDate(), 'dd/MM/yyyy') : 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -149,7 +150,7 @@ export default function CampanhasPage() {
                                 <Send className="mr-2 h-4 w-4" />
                                 Disparar
                             </DropdownMenuItem>
-                             <DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => router.push(`/dashboard/marketing/campanhas/${campaign.id}/historico`)}>
                                 <History className="mr-2 h-4 w-4" />
                                 Ver Histórico
                             </DropdownMenuItem>
@@ -194,7 +195,7 @@ export default function CampanhasPage() {
         <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Disparo?</AlertDialogTitle>
-              <AlertDialogDescription>A campanha será enviada para {selectedCampaign?.contactIds.length} contato(s). Esta ação não pode ser desfeita.</AlertDialogDescription>
+              <AlertDialogDescription>A campanha será enviada para {selectedCampaign?.contactIds?.length || 0} contato(s). Esta ação não pode ser desfeita.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>

@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, cert, ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, getDoc, doc, updateDoc } from "firebase-admin/firestore";
+import { getFirestore, getDoc, doc, updateDoc, collection, addDoc, serverTimestamp } from "firebase-admin/firestore";
 
 let app;
 
@@ -35,4 +35,4 @@ try {
 const adminAuth = getAuth(app);
 const adminDb = getFirestore(app);
 
-export { app as adminApp, adminAuth, adminDb, getDoc, doc, updateDoc };
+export { app as adminApp, adminAuth, adminDb, getDoc, doc, updateDoc, collection, addDoc, serverTimestamp };

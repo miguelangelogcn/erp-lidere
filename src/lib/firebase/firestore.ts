@@ -598,13 +598,24 @@ export const getCampaigns = async (): Promise<Campaign[]> => {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign));
 };
-export const addCampaign = (campaign: Omit<Campaign, "id">) => {
+export const addCampaign = (campaign: Omit<Campaign, "id" | "createdAt">) => {
     return addDoc(collection(db, "campaigns"), { ...campaign, createdAt: serverTimestamp() });
 };
-export const updateCampaign = (id: string, campaign: Partial<Omit<Campaign, "id">>) => {
+export const updateCampaign = (id: string, campaign: Partial<Omit<Campaign, "id" | 'createdAt'>>) => {
     return updateDoc(doc(db, "campaigns", id), campaign);
 };
 export const deleteCampaign = (id: string) => deleteDoc(doc(db, "campaigns", id));
+
+export const getDispatchesByCampaignId = async (campaignId: string): Promise<Dispatch[]> => {
+  const dispatchesCol = collection(db, "dispatches");
+  const q = query(dispatchesCol, where("campaignId", "==", campaignId), orderBy("dispatchDate", "desc"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    dispatchDate: doc.data().dispatchDate.toDate()
+  } as Dispatch));
+};
 
 
 // System Pages for Permissions

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb, getDoc, doc, updateDoc, collection, addDoc, serverTimestamp } from '@/lib/firebase/server';
+import { adminDb, getDoc, doc, collection, addDoc, serverTimestamp } from '@/lib/firebase/server';
 import { Contact, Campaign } from '@/lib/firebase/firestore';
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
