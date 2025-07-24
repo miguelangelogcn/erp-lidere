@@ -24,7 +24,7 @@ export async function POST(
       return NextResponse.json({ error: 'Campanha não encontrada.' }, { status: 404 });
     }
 
-    const campaign = campaignSnap.data() as Campaign;
+    const campaign = campaignSnap.data() as Campaign & { whatsappContent?: { templateName: string } };
 
     if (!campaign.contactIds || campaign.contactIds.length === 0) {
         return NextResponse.json({ error: 'Nenhum contato selecionado para esta campanha.' }, { status: 400 });
@@ -35,54 +35,110 @@ export async function POST(
     const contactsQuery = await contactsRef.where('__name__', 'in', campaign.contactIds).get();
     const contacts: Contact[] = contactsQuery.docs.map(doc => doc.data() as Contact);
 
-    // 3. Disparar os e-mails
-    let dispatchSuccessful = true;
+    // 3. Disparar as mensagens
+    let successfulDispatches = 0;
+    const totalChannels = campaign.channels.length;
+    let errors: string[] = [];
+
+    // Disparo de E-mails
     if (campaign.channels.includes('email')) {
         const emailContent = campaign.emailContent;
         if (!emailContent || !emailContent.subject || !emailContent.body) {
-            return NextResponse.json({ error: 'Conteúdo do e-mail (assunto e corpo) não definido na campanha.' }, { status: 400 });
-        }
-        
-        const transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            port: Number(process.env.EMAIL_PORT),
-            secure: Number(process.env.EMAIL_PORT) === 465,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-        });
+            errors.push('Conteúdo do e-mail (assunto e corpo) não definido na campanha.');
+        } else {
+            const transporter = nodemailer.createTransport({
+                host: process.env.EMAIL_HOST,
+                port: Number(process.env.EMAIL_PORT),
+                secure: Number(process.env.EMAIL_PORT) === 465,
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASS,
+                },
+            });
 
-        const emailPromises = contacts
-            .filter(c => c.email)
-            .map(contact => {
-                return transporter.sendMail({
+            const emailPromises = contacts
+                .filter(c => c.email)
+                .map(contact => transporter.sendMail({
                     from: process.env.EMAIL_FROM,
                     to: contact.email,
                     subject: campaign.emailContent!.subject,
                     text: campaign.emailContent!.body,
+                }));
+            
+            try {
+                await Promise.all(emailPromises);
+                successfulDispatches++;
+            } catch(emailError: any) {
+                console.error("ERRO AO ENVIAR E-MAILS:", emailError);
+                errors.push(`Falha no envio de e-mails: ${emailError.message}`);
+            }
+        }
+    }
+    
+    // Disparo de WhatsApp
+    if (campaign.channels.includes('whatsapp')) {
+        const { WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID } = process.env;
+        const templateName = campaign.whatsappContent?.templateName;
+
+        if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
+            errors.push("Credenciais do WhatsApp não configuradas no servidor.");
+        } else if (!templateName) {
+            errors.push("Modelo de mensagem do WhatsApp não definido na campanha.");
+        } else {
+            const whatsappPromises = contacts
+                .filter(c => c.phone) // Garante que o contato tem um telefone
+                .map(contact => {
+                    const payload = {
+                        messaging_product: "whatsapp",
+                        to: contact.phone,
+                        type: "template",
+                        template: {
+                            name: templateName,
+                            language: {
+                                code: "pt_BR" // Ou o código de idioma do seu modelo
+                            }
+                        }
+                    };
+                    return fetch(`https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
                 });
-            });
-        
-        try {
-            await Promise.all(emailPromises);
-        } catch(emailError) {
-            console.error("ERRO AO ENVIAR E-MAILS:", emailError);
-            dispatchSuccessful = false;
+
+            try {
+                const results = await Promise.all(whatsappPromises);
+                results.forEach(async (res, index) => {
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        console.error(`Falha ao enviar para ${contacts.filter(c => c.phone)[index].phone}:`, errorData);
+                    }
+                });
+                // Considera sucesso se pelo menos tentou enviar
+                successfulDispatches++;
+            } catch(whatsappError: any) {
+                 console.error("ERRO AO ENVIAR WHATSAPP:", whatsappError);
+                 errors.push(`Falha no envio de WhatsApp: ${whatsappError.message}`);
+            }
         }
     }
 
 
     // 4. Registrar o evento de disparo no histórico
+    const status = successfulDispatches > 0 ? 'success' : 'failed';
     const dispatchesRef = adminDb.collection('dispatches');
     await dispatchesRef.add({
       campaignId: campaignId,
-      dispatchDate: FieldValue.serverTimestamp(), // Usa a data e hora do servidor
-      status: dispatchSuccessful ? 'success' : 'failed',
+      dispatchDate: FieldValue.serverTimestamp(),
+      status: status,
+      details: errors.length > 0 ? errors.join('; ') : 'Envio concluído.'
     });
 
-    if (!dispatchSuccessful) {
-        throw new Error("Falha no envio de um ou mais e-mails.");
+    if (status === 'failed') {
+        throw new Error(errors.join('; '));
     }
 
     return NextResponse.json({ message: 'Campanha disparada e registrada com sucesso!' });
