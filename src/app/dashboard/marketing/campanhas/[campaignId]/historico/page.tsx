@@ -3,7 +3,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Campaign, Dispatch, getDoc, doc, db, getDispatchesByCampaignId } from '@/lib/firebase/firestore';
+import { Campaign, Dispatch, getDispatchesByCampaignId } from '@/lib/firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
