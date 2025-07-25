@@ -65,7 +65,7 @@ function OngoingDispatches() {
                                 <span className="text-sm text-muted-foreground">{dispatch.processedContacts} / {dispatch.totalContacts} contatos</span>
                             </div>
                             <Progress value={progressValue} />
-                            <p className="text-xs text-muted-foreground mt-1 capitalize">Status: {dispatch.status}</p>
+                             <p className="text-xs text-muted-foreground mt-1 capitalize">Status: {dispatch.status}</p>
                         </div>
                     )
                 })}
