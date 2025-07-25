@@ -53,7 +53,7 @@ function OngoingDispatches() {
                         <div key={dispatch.id}>
                             <div className="flex justify-between items-center mb-1">
                                 <span className="font-medium">{dispatch.campaignName}</span>
-                                <span className="text-sm text-muted-foreground">{dispatch.processedContacts} / {dispatch.totalContacts}</span>
+                                <span className="text-sm text-muted-foreground">{dispatch.processedContacts} / {dispatch.totalContacts} contatos</span>
                             </div>
                             <Progress value={progressValue} />
                             <p className="text-xs text-muted-foreground mt-1 capitalize">Status: {dispatch.status}</p>
