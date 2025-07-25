@@ -85,6 +85,14 @@ export const processDispatchQueue = functions.firestore
             // 4. Enviar e-mails e atualizar progresso
             if (campaign.emailContent) {
                 for (let i = 0; i < contacts.length; i++) {
+                    
+                    // Verifica se o disparo foi cancelado
+                    const currentDispatchDoc = await dispatchRef.get();
+                    if (!currentDispatchDoc.exists) {
+                        functions.logger.info(`Cancelamento detectado para o disparo ${dispatchId}. Interrompendo.`);
+                        break; 
+                    }
+                    
                     const contact = contacts[i];
                     await transporter.sendMail({
                         from: `Lidere <${functions.config().smtp.user}>`,
@@ -99,6 +107,13 @@ export const processDispatchQueue = functions.firestore
                     });
                 }
             }
+            
+            // Verifica uma última vez antes de marcar como concluído
+            const finalDispatchDoc = await dispatchRef.get();
+            if (!finalDispatchDoc.exists) {
+                functions.logger.info(`Disparo ${dispatchId} foi cancelado antes da conclusão.`);
+                return;
+            }
 
 
             // 5. Finalizar o disparo
@@ -110,12 +125,17 @@ export const processDispatchQueue = functions.firestore
 
         } catch (error: any) {
             functions.logger.error(`Erro no disparo ${dispatchId}:`, error);
-            await dispatchRef.update({
-                status: "failed",
-                error: error.message,
-                completedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+            
+            const currentDispatchDoc = await dispatchRef.get();
+            if (currentDispatchDoc.exists) {
+                await dispatchRef.update({
+                    status: "failed",
+                    error: error.message,
+                    completedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
         }
     });
+
 
 
