@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCampaigns, Campaign, getOngoingDispatches, Dispatch } from '@/lib/firebase/firestore';
+import { getCampaigns, Campaign, Dispatch, deleteCampaign } from '@/lib/firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,13 +14,22 @@ import { Progress } from '@/components/ui/progress';
 import { MoreHorizontal, Loader2, Edit, History, Send, Trash, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { onSnapshot, query, collection, where, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 
 function OngoingDispatches() {
     const [dispatches, setDispatches] = useState<Dispatch[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = getOngoingDispatches((ongoingDispatches) => {
+        const q = query(
+            collection(db, 'dispatches'), 
+            where('status', 'in', ['processing', 'queued']),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const ongoingDispatches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dispatch));
             setDispatches(ongoingDispatches);
             setLoading(false);
         });
@@ -241,4 +250,3 @@ export default function CampanhasPage() {
     </>
   );
 }
-

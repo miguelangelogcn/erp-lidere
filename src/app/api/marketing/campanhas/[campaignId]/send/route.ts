@@ -47,7 +47,7 @@ export async function POST(
     const dispatchesRef = adminDb.collection('dispatches');
     await dispatchesRef.add({
       campaignId: campaignId,
-      campaignName: campaign.name, // Adicionar o nome da campanha
+      campaignName: campaign.name,
       status: 'queued',
       totalContacts: totalContacts,
       processedContacts: 0,
