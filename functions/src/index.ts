@@ -1,141 +1,101 @@
-
-import * as functions from "firebase-functions";
+import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
-import {FieldValue} from "firebase-admin/firestore";
 import * as nodemailer from "nodemailer";
+import {FieldValue} from "firebase-admin/firestore";
 
-// Inicializa o Firebase Admin SDK.
-// É executado uma vez por instância da função.
 admin.initializeApp();
-const db = admin.firestore();
 
-// Configura o Nodemailer. Use variáveis de ambiente para credenciais.
-// eslint-disable-next-line max-len
-// firebase functions:config:set smtp.host="smtp.example.com" smtp.port=587 ...
-const transporter = nodemailer.createTransport({
-  host: functions.config().smtp.host,
-  port: functions.config().smtp.port,
-  secure: true, // true para 465, false para outras portas
-  auth: {
-    user: functions.config().smtp.user,
-    pass: functions.config().smtp.pass,
-  },
-});
-
-// Interfaces para tipagem dos dados do Firestore
-interface Campaign {
-    name: string;
-    contactIds?: string[];
-    segmentType: "individual" | "tags";
-    targetTags?: string[];
-    emailContent?: {
-        subject: string;
-        body: string;
-    };
-}
-
-interface Contact {
-    id: string;
-    name: string;
-    email: string;
-}
-
-// eslint-disable-next-line max-len
-// Cloud Function acionada pela criação de um novo documento na coleção 'dispatches'
-export const processDispatchQueue = functions.firestore
-  .document("dispatches/{dispatchId}")
-  .onCreate(async (snap, context) => {
-    const {dispatchId} = context.params;
-    const dispatch = snap.data();
-
-    if (!dispatch) {
-      // eslint-disable-next-line max-len
-      functions.logger.error(`Disparo ${dispatchId}: Documento de disparo vazio ou não encontrado.`);
+export const processDispatchQueue = onDocumentCreated(
+  "dispatches/{dispatchId}",
+  async (event) => {
+    const dispatchDoc = event.data;
+    if (!dispatchDoc) {
+      console.log("Nenhum dado associado ao evento.");
       return;
     }
-
-    const dispatchRef = db.collection("dispatches").doc(dispatchId);
+    const dispatchData = dispatchDoc.data();
+    const dispatchId = event.params.dispatchId;
 
     try {
-      // 1. Atualiza o status para 'processing'
-      functions.logger.info(`Disparo ${dispatchId}: Iniciando processamento.`);
-      await dispatchRef.update({
+      console.log(`Processando disparo: ${dispatchId}`);
+      await dispatchDoc.ref.update({
         status: "processing",
         startedAt: FieldValue.serverTimestamp(),
       });
 
-      // 2. Obtém os dados da campanha
-      const campaignRef = db.collection("campaigns").doc(dispatch.campaignId);
-      const campaignDoc = await campaignRef.get();
-      if (!campaignDoc.exists) {
-        throw new Error(`Campanha ${dispatch.campaignId} não encontrada.`);
-      }
-      const campaign = campaignDoc.data() as Campaign;
+      const campaignRef = admin.firestore()
+        .doc(`campaigns/${dispatchData.campaignId}`);
+      const campaignSnap = await campaignRef.get();
+      const campaignData = campaignSnap.data();
 
-      // 3. Obtém a lista de contatos
-      let contacts: Contact[] = [];
-      const contactsRef = db.collection("contacts");
-
-      if (campaign.segmentType === "tags" && campaign.targetTags?.length) {
-        // eslint-disable-next-line max-len
-        const contactsQuery = await contactsRef.where("tags", "array-contains-any", campaign.targetTags).get();
-        contacts = contactsQuery.docs.map((doc) => ({id: doc.id, ...doc.data()}) as Contact);
-      } else if (campaign.segmentType === "individual" && campaign.contactIds?.length) {
-        // eslint-disable-next-line max-len
-        const contactsQuery = await contactsRef.where(admin.firestore.FieldPath.documentId(), "in", campaign.contactIds).get();
-        contacts = contactsQuery.docs.map((doc) => ({id: doc.id, ...doc.data()}) as Contact);
+      if (!campaignData) {
+        throw new Error(`Campanha ${dispatchData.campaignId} não encontrada.`);
       }
 
-      if (contacts.length === 0) {
+      let contacts = [];
+      if (campaignData.segmentType === "tags" && campaignData.targetTags) {
         // eslint-disable-next-line max-len
-        throw new Error("Nenhum contato qualificado encontrado para esta campanha.");
+        const q = admin.firestore().collection("contacts").where("tags", "array-contains-any", campaignData.targetTags);
+        const contactsSnapshot = await q.get();
+        contacts = contactsSnapshot.docs.map((doc) => doc.data());
+      } else {
+        const q = admin.firestore().collection("contacts")
+          .where(admin.firestore.FieldPath.documentId(),
+            "in", campaignData.contactIds);
+        const contactsSnapshot = await q.get();
+        contacts = contactsSnapshot.docs.map((doc) => doc.data());
       }
 
-      // 4. Envia e-mails e atualiza o progresso
-      if (campaign.emailContent) {
-        for (const contact of contacts) {
-          // eslint-disable-next-line max-len
-          // Verifica a cada iteração se o disparo foi cancelado (documento deletado)
-          const currentDispatchDoc = await dispatchRef.get();
-          if (!currentDispatchDoc.exists) {
-            // eslint-disable-next-line max-len
-            functions.logger.info(`Disparo ${dispatchId}: Cancelamento detectado. Interrompendo.`);
-            return; // Encerra a função
-          }
+      const transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST,
+        port: Number(process.env.EMAIL_PORT),
+        secure: Number(process.env.EMAIL_PORT) === 465,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
 
-          // eslint-disable-next-line max-len
-          functions.logger.log(`Disparo ${dispatchId}: Enviando e-mail para ${contact.email}`);
+      let processedCount = 0;
+      for (const contact of contacts) {
+        const currentDoc = await dispatchDoc.ref.get();
+        if (!currentDoc.exists) {
+          console.log(`Disparo ${dispatchId} foi cancelado. Parando.`);
+          break;
+        }
+
+        if (contact.email) {
           await transporter.sendMail({
-            from: `Lidere <${functions.config().smtp.user}>`,
+            from: process.env.EMAIL_FROM,
             to: contact.email,
-            subject: campaign.emailContent.subject,
-            // eslint-disable-next-line max-len
-            html: campaign.emailContent.body.replace(/{{name}}/g, contact.name),
+            subject: campaignData.emailContent.subject,
+            text: campaignData.emailContent.body,
           });
 
-          // Atualiza o progresso de forma atômica
-          await dispatchRef.update({processedContacts: FieldValue.increment(1)});
+          processedCount++;
+          await dispatchDoc.ref.update({
+            processedContacts: FieldValue.increment(1),
+          });
         }
       }
 
-      // 5. Finaliza o disparo como concluído
-      // eslint-disable-next-line max-len
-      functions.logger.info(`Disparo ${dispatchId}: Processamento concluído.`);
-      await dispatchRef.update({
+      await dispatchDoc.ref.update({
         status: "completed",
         completedAt: FieldValue.serverTimestamp(),
+        processedContacts: processedCount,
       });
+      console.log(`Disparo ${dispatchId} concluído com sucesso.`);
     } catch (error: unknown) {
+      const errorMessage = error instanceof Error ?
+        error.message :
+        "Ocorreu um erro desconhecido";
       // eslint-disable-next-line max-len
-      functions.logger.error(`Disparo ${dispatchId}: Falha catastrófica.`, error);
-      // Garante que o documento exista antes de tentar atualizá-lo com o erro
-      const docToCheck = await dispatchRef.get();
-      if (docToCheck.exists) {
-        await dispatchRef.update({
-          status: "failed",
-          error: (error as Error).message,
-          completedAt: FieldValue.serverTimestamp(),
-        });
-      }
+      console.error(`Falha ao processar o disparo ${dispatchId}:`, errorMessage);
+      await dispatchDoc.ref.update({
+        status: "failed",
+        error: errorMessage,
+        completedAt: FieldValue.serverTimestamp(),
+      });
     }
-  });
+  },
+);
