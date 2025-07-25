@@ -1,12 +1,26 @@
+// functions/src/index.ts
+
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as nodemailer from "nodemailer";
 import {FieldValue} from "firebase-admin/firestore";
+import {defineString} from "firebase-functions/params";
+
+// Define as variáveis de ambiente que a função irá usar
+const emailHost = defineString("EMAIL_HOST");
+const emailPort = defineString("EMAIL_PORT");
+const emailUser = defineString("EMAIL_USER");
+const emailPass = defineString("EMAIL_PASS");
+const emailFrom = defineString("EMAIL_FROM");
 
 admin.initializeApp();
 
 export const processDispatchQueue = onDocumentCreated(
-  "dispatches/{dispatchId}",
+  {
+    document: "dispatches/{dispatchId}",
+    // Garante que a função tenha acesso à internet e aos segredos
+    secrets: ["EMAIL_HOST", "EMAIL_PORT", "EMAIL_USER", "EMAIL_PASS", "EMAIL_FROM"],
+  },
   async (event) => {
     const dispatchDoc = event.data;
     if (!dispatchDoc) {
@@ -32,13 +46,13 @@ export const processDispatchQueue = onDocumentCreated(
         throw new Error(`Campanha ${dispatchData.campaignId} não encontrada.`);
       }
 
-      let contacts = [];
+      let contacts: admin.firestore.DocumentData[] = [];
       if (campaignData.segmentType === "tags" && campaignData.targetTags) {
-        // eslint-disable-next-line max-len
-        const q = admin.firestore().collection("contacts").where("tags", "array-contains-any", campaignData.targetTags);
+        const q = admin.firestore().collection("contacts")
+          .where("tags", "array-contains-any", campaignData.targetTags);
         const contactsSnapshot = await q.get();
         contacts = contactsSnapshot.docs.map((doc) => doc.data());
-      } else {
+      } else if (campaignData.contactIds?.length > 0) {
         const q = admin.firestore().collection("contacts")
           .where(admin.firestore.FieldPath.documentId(),
             "in", campaignData.contactIds);
@@ -46,33 +60,30 @@ export const processDispatchQueue = onDocumentCreated(
         contacts = contactsSnapshot.docs.map((doc) => doc.data());
       }
 
+      if (contacts.length === 0) {
+        throw new Error("Nenhum contato encontrado para esta campanha.");
+      }
+
       const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT),
-        secure: Number(process.env.EMAIL_PORT) === 465,
+        host: emailHost.value(),
+        port: Number(emailPort.value()),
+        secure: Number(emailPort.value()) === 465,
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
+          user: emailUser.value(),
+          pass: emailPass.value(),
         },
       });
 
-      let processedCount = 0;
+      console.log(`Iniciando envio para ${contacts.length} contatos.`);
       for (const contact of contacts) {
-        const currentDoc = await dispatchDoc.ref.get();
-        if (!currentDoc.exists) {
-          console.log(`Disparo ${dispatchId} foi cancelado. Parando.`);
-          break;
-        }
-
-        if (contact.email) {
+        if (contact.email && campaignData.emailContent) {
           await transporter.sendMail({
-            from: process.env.EMAIL_FROM,
+            from: emailFrom.value(),
             to: contact.email,
             subject: campaignData.emailContent.subject,
             text: campaignData.emailContent.body,
           });
-
-          processedCount++;
+          // Atualiza o progresso a cada envio
           await dispatchDoc.ref.update({
             processedContacts: FieldValue.increment(1),
           });
@@ -82,14 +93,11 @@ export const processDispatchQueue = onDocumentCreated(
       await dispatchDoc.ref.update({
         status: "completed",
         completedAt: FieldValue.serverTimestamp(),
-        processedContacts: processedCount,
       });
       console.log(`Disparo ${dispatchId} concluído com sucesso.`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ?
-        error.message :
-        "Ocorreu um erro desconhecido";
-      // eslint-disable-next-line max-len
+        error.message : "Ocorreu um erro desconhecido";
       console.error(`Falha ao processar o disparo ${dispatchId}:`, errorMessage);
       await dispatchDoc.ref.update({
         status: "failed",
