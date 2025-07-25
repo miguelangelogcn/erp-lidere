@@ -1,4 +1,4 @@
-
+// src/app/api/marketing/dispatches/[dispatchId]/route.ts
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/server';
 
@@ -13,20 +13,11 @@ export async function DELETE(
   }
 
   try {
-    const dispatchRef = adminDb.doc(`dispatches/${dispatchId}`);
-    
-    // Opcional: Verificar se o documento existe antes de deletar
-    const dispatchSnap = await dispatchRef.get();
-    if (!dispatchSnap.exists) {
-      return NextResponse.json({ error: 'Disparo não encontrado.' }, { status: 404 });
-    }
-
-    await dispatchRef.delete();
-
-    return NextResponse.json({ message: 'Disparo cancelado com sucesso!' });
-
+    await adminDb.collection('dispatches').doc(dispatchId).delete();
+    console.log(`Disparo ${dispatchId} cancelado e excluído com sucesso.`);
+    return NextResponse.json({ message: 'Disparo cancelado com sucesso.' });
   } catch (error: any) {
-    console.error("ERRO AO CANCELAR DISPARO:", error);
-    return NextResponse.json({ error: 'Falha ao cancelar o disparo.', details: error.message }, { status: 500 });
+    console.error(`Falha ao excluir o disparo ${dispatchId}:`, error);
+    return NextResponse.json({ error: 'Falha ao excluir o disparo.', details: error.message }, { status: 500 });
   }
 }
