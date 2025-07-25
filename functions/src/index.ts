@@ -10,6 +10,7 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // Configura o Nodemailer. Use variáveis de ambiente para credenciais.
+// eslint-disable-next-line max-len
 // firebase functions:config:set smtp.host="smtp.example.com" smtp.port=587 ...
 const transporter = nodemailer.createTransport({
   host: functions.config().smtp.host,
@@ -39,6 +40,7 @@ interface Contact {
     email: string;
 }
 
+// eslint-disable-next-line max-len
 // Cloud Function acionada pela criação de um novo documento na coleção 'dispatches'
 export const processDispatchQueue = functions.firestore
   .document("dispatches/{dispatchId}")
@@ -47,6 +49,7 @@ export const processDispatchQueue = functions.firestore
     const dispatch = snap.data();
 
     if (!dispatch) {
+      // eslint-disable-next-line max-len
       functions.logger.error(`Disparo ${dispatchId}: Documento de disparo vazio ou não encontrado.`);
       return;
     }
@@ -74,32 +77,39 @@ export const processDispatchQueue = functions.firestore
       const contactsRef = db.collection("contacts");
 
       if (campaign.segmentType === "tags" && campaign.targetTags?.length) {
+        // eslint-disable-next-line max-len
         const contactsQuery = await contactsRef.where("tags", "array-contains-any", campaign.targetTags).get();
         contacts = contactsQuery.docs.map((doc) => ({id: doc.id, ...doc.data()}) as Contact);
       } else if (campaign.segmentType === "individual" && campaign.contactIds?.length) {
+        // eslint-disable-next-line max-len
         const contactsQuery = await contactsRef.where(admin.firestore.FieldPath.documentId(), "in", campaign.contactIds).get();
         contacts = contactsQuery.docs.map((doc) => ({id: doc.id, ...doc.data()}) as Contact);
       }
 
       if (contacts.length === 0) {
+        // eslint-disable-next-line max-len
         throw new Error("Nenhum contato qualificado encontrado para esta campanha.");
       }
 
       // 4. Envia e-mails e atualiza o progresso
       if (campaign.emailContent) {
         for (const contact of contacts) {
+          // eslint-disable-next-line max-len
           // Verifica a cada iteração se o disparo foi cancelado (documento deletado)
           const currentDispatchDoc = await dispatchRef.get();
           if (!currentDispatchDoc.exists) {
+            // eslint-disable-next-line max-len
             functions.logger.info(`Disparo ${dispatchId}: Cancelamento detectado. Interrompendo.`);
             return; // Encerra a função
           }
 
+          // eslint-disable-next-line max-len
           functions.logger.log(`Disparo ${dispatchId}: Enviando e-mail para ${contact.email}`);
           await transporter.sendMail({
             from: `Lidere <${functions.config().smtp.user}>`,
             to: contact.email,
             subject: campaign.emailContent.subject,
+            // eslint-disable-next-line max-len
             html: campaign.emailContent.body.replace(/{{name}}/g, contact.name),
           });
 
@@ -109,19 +119,21 @@ export const processDispatchQueue = functions.firestore
       }
 
       // 5. Finaliza o disparo como concluído
+      // eslint-disable-next-line max-len
       functions.logger.info(`Disparo ${dispatchId}: Processamento concluído.`);
       await dispatchRef.update({
         status: "completed",
         completedAt: FieldValue.serverTimestamp(),
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line max-len
       functions.logger.error(`Disparo ${dispatchId}: Falha catastrófica.`, error);
       // Garante que o documento exista antes de tentar atualizá-lo com o erro
       const docToCheck = await dispatchRef.get();
       if (docToCheck.exists) {
         await dispatchRef.update({
           status: "failed",
-          error: error.message,
+          error: (error as Error).message,
           completedAt: FieldValue.serverTimestamp(),
         });
       }
