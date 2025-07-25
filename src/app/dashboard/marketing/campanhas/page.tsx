@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { MoreHorizontal, Loader2, Edit, History, Send, Trash, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, Loader2, Edit, History, Send, Trash, PlusCircle, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { onSnapshot, query, collection, where, orderBy } from 'firebase/firestore';
@@ -20,6 +20,9 @@ import { db } from '@/lib/firebase/client';
 function OngoingDispatches() {
     const [dispatches, setDispatches] = useState<Dispatch[]>([]);
     const [loading, setLoading] = useState(true);
+    const [cancellingId, setCancellingId] = useState<string | null>(null);
+    const { toast } = useToast();
+
 
     useEffect(() => {
         const q = query(
@@ -36,6 +39,23 @@ function OngoingDispatches() {
 
         return () => unsubscribe(); // Cleanup listener on component unmount
     }, []);
+
+    const handleCancelDispatch = async (dispatchId: string) => {
+        setCancellingId(dispatchId);
+        try {
+            const response = await fetch(`/api/marketing/dispatches/${dispatchId}`, {
+                method: 'DELETE',
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Falha ao cancelar disparo.");
+            toast({ title: "Sucesso", description: "Disparo cancelado."});
+            // The onSnapshot listener will automatically remove the item from the UI
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Erro", description: (error as Error).message });
+        } finally {
+            setCancellingId(null);
+        }
+    }
 
     if (loading) {
         return (
@@ -59,13 +79,23 @@ function OngoingDispatches() {
                 {dispatches.map(dispatch => {
                     const progressValue = dispatch.totalContacts > 0 ? (dispatch.processedContacts / dispatch.totalContacts) * 100 : 0;
                     return (
-                        <div key={dispatch.id}>
+                        <div key={dispatch.id} className="p-3 rounded-md bg-muted/50">
                             <div className="flex justify-between items-center mb-1">
                                 <span className="font-medium">{dispatch.campaignName}</span>
-                                <span className="text-sm text-muted-foreground">{dispatch.processedContacts} / {dispatch.totalContacts} contatos</span>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => handleCancelDispatch(dispatch.id)}
+                                    disabled={cancellingId === dispatch.id}
+                                >
+                                    {cancellingId === dispatch.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                                </Button>
                             </div>
                             <Progress value={progressValue} />
-                             <p className="text-xs text-muted-foreground mt-1 capitalize">Status: {dispatch.status}</p>
+                             <p className="text-xs text-muted-foreground mt-2">
+                               {dispatch.processedContacts} de {dispatch.totalContacts} enviados ({dispatch.status})
+                             </p>
                         </div>
                     )
                 })}
