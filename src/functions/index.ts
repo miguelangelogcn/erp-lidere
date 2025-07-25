@@ -137,5 +137,3 @@ export const processDispatchQueue = functions.firestore
         }
     });
 
-
-
