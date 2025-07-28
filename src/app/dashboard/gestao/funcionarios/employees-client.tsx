@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -66,21 +67,23 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { CustomField } from "@/app/dashboard/settings/employees/fields-client";
 
-// Schema for adding a new employee (includes password)
-const addFormSchema = z.object({
+
+const baseSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   email: z.string().email("Email inválido."),
+  roleId: z.string().min(1, "O cargo é obrigatório."),
+  customData: z.record(z.any()).optional(),
+});
+
+const addFormSchema = baseSchema.extend({
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres."),
-  roleId: z.string().min(1, "O cargo é obrigatório."),
 });
 
-// Schema for editing an employee (password is not required/editable here)
-const editFormSchema = z.object({
-  name: z.string().min(1, "O nome é obrigatório."),
-  email: z.string().email("Email inválido."),
-  roleId: z.string().min(1, "O cargo é obrigatório."),
-});
+const editFormSchema = baseSchema;
+
 
 type AddEmployeeFormValues = z.infer<typeof addFormSchema>;
 type EditEmployeeFormValues = z.infer<typeof editFormSchema>;
@@ -88,6 +91,8 @@ type EditEmployeeFormValues = z.infer<typeof editFormSchema>;
 export function EmployeesClient() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -100,21 +105,20 @@ export function EmployeesClient() {
 
   const form = useForm({
     resolver: zodResolver(isEditing ? editFormSchema : addFormSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      roleId: "",
-    },
   });
 
   const refreshData = async () => {
     setPageLoading(true);
     try {
         if (!user) return;
-        const [employeesData, rolesData] = await Promise.all([getEmployees(), getRoles()]);
+        const [employeesData, rolesData, fieldsData] = await Promise.all([
+            getEmployees(), 
+            getRoles(),
+            fetch('/api/settings/employee-fields').then(res => res.json())
+        ]);
         setEmployees(employeesData);
         setRoles(rolesData);
+        setCustomFields(fieldsData);
     } catch (error) {
         console.error("Firebase permission error:", error);
         toast({
@@ -132,15 +136,24 @@ export function EmployeesClient() {
   }, [user]);
 
   useEffect(() => {
-    if (isEditing) {
+    const defaultValues: any = {
+      name: "",
+      email: "",
+      roleId: "",
+      customData: {},
+    };
+    if (isEditing && selectedEmployee) {
         form.reset({
             name: selectedEmployee.name,
             email: selectedEmployee.email,
             roleId: selectedEmployee.roleId,
-            password: "" // Clear password on edit
+            customData: selectedEmployee.customData || {}
         });
     } else {
-        form.reset({ name: "", email: "", password: "", roleId: "" });
+        form.reset({
+            ...defaultValues,
+            password: "",
+        });
     }
   }, [isFormOpen, selectedEmployee, form, isEditing]);
 
@@ -159,7 +172,11 @@ export function EmployeesClient() {
     setLoading(true);
     try {
       if (isEditing && selectedEmployee) {
-        await updateEmployee(selectedEmployee.id, { name: values.name, roleId: values.roleId });
+        await updateEmployee(selectedEmployee.id, { 
+            name: values.name, 
+            roleId: values.roleId,
+            customData: values.customData 
+        });
         toast({ title: "Sucesso", description: "Funcionário atualizado." });
       } else {
          const response = await fetch('/api/create-user', {
@@ -206,35 +223,66 @@ export function EmployeesClient() {
                 Adicionar Funcionário
             </Button>
         </div>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <DialogHeader>
                 <DialogTitle>{isEditing ? "Editar Funcionário" : "Adicionar Funcionário"}</DialogTitle>
                 <DialogDescription>
-                  Preencha os detalhes do funcionário. A senha será usada para o primeiro login.
+                  Preencha os detalhes do funcionário.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nome</FormLabel><FormControl><Input placeholder="Nome completo" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                 <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="email@dominio.com" {...field} disabled={isEditing} /></FormControl><FormMessage /></FormItem>)}/>
-                 {!isEditing && (
-                    <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>Senha</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                 )}
-                 <FormField control={form.control} name="roleId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cargo</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione um cargo" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {roles.map(role => (<SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}/>
+              <ScrollArea className="h-[60vh] p-1">
+              <div className="space-y-4 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nome</FormLabel><FormControl><Input placeholder="Nome completo" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="email@dominio.com" {...field} disabled={isEditing} /></FormControl><FormMessage /></FormItem>)}/>
+                    {!isEditing && (
+                        <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>Senha</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                    )}
+                    <FormField control={form.control} name="roleId" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Cargo</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecione um cargo" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                            {roles.map(role => (<SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}/>
+                </div>
+                 {customFields.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t">
+                         <h4 className="text-md font-medium">Informações Adicionais</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {customFields.map((field) => (
+                                <FormField
+                                    key={field.id}
+                                    control={form.control}
+                                    name={`customData.${field.key}`}
+                                    render={({ field: formField }) => (
+                                        <FormItem>
+                                            <FormLabel>{field.label}</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    type={field.fieldType} 
+                                                    {...formField} 
+                                                    value={formField.value || ''}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
               </div>
-              <DialogFooter>
+              </ScrollArea>
+              <DialogFooter className="border-t pt-4 mt-4">
                 <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar</Button>
               </DialogFooter>

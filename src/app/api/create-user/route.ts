@@ -1,4 +1,5 @@
 
+
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/server";
 import { z } from "zod";
@@ -8,6 +9,7 @@ const userSchema = z.object({
   password: z.string().min(6),
   name: z.string().min(1),
   roleId: z.string().min(1),
+  customData: z.record(z.any()).optional(),
 });
 
 export async function POST(request: Request) {
@@ -22,7 +24,7 @@ export async function POST(request: Request) {
       );
     }
     
-    const { email, password, name, roleId } = validation.data;
+    const { email, password, name, roleId, customData } = validation.data;
 
     // We get the role name to set it as a custom claim. This is useful for backend security rules.
     const roleDoc = await adminDb.collection("roles").doc(roleId).get();
@@ -47,6 +49,7 @@ export async function POST(request: Request) {
       email,
       roleId,
       assignedCourses: [],
+      customData: customData || {},
     });
 
     return NextResponse.json({

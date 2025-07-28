@@ -1,3 +1,4 @@
+
 // src/lib/firebase/firestore.ts
 
 import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch, Timestamp } from "firebase/firestore";
@@ -19,6 +20,7 @@ export interface Employee {
     roleId: string;
     role?: string; // Optional: To be populated after fetching
     assignedCourses?: string[];
+    customData?: { [key: string]: any };
 }
 
 export interface Course {
