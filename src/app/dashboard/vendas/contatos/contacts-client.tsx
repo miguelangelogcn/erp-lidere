@@ -21,11 +21,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { CustomField } from "@/app/dashboard/settings/contacts/fields-client";
 
 const formSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   email: z.string().email("Email inválido."),
   phone: z.string().optional(),
+  customData: z.record(z.any()).optional(),
 });
 type ContactFormValues = z.infer<typeof formSchema>;
 
@@ -43,6 +46,8 @@ type BulkTagFormValues = z.infer<typeof bulkTagFormSchema>;
 
 export function ContactsClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
@@ -61,8 +66,12 @@ export function ContactsClient() {
     try {
         if (!user) return;
         setPageLoading(true);
-        const data = await getContacts();
-        setContacts(data);
+        const [contactsData, fieldsData] = await Promise.all([
+            getContacts(),
+            fetch('/api/settings/contact-fields').then(res => res.json())
+        ]);
+        setContacts(contactsData);
+        setCustomFields(fieldsData);
         setSelectedRowKeys([]);
     } catch (error) {
         console.error("Error fetching contacts:", error);
@@ -94,9 +103,14 @@ export function ContactsClient() {
   const handleDialogOpen = (contact: Contact | null) => {
     setSelectedContact(contact);
     if (contact) {
-      form.reset(contact);
+      form.reset({
+          name: contact.name,
+          email: contact.email,
+          phone: contact.phone,
+          customData: contact.customData || {},
+      });
     } else {
-      form.reset({ name: "", email: "", phone: "" });
+      form.reset({ name: "", email: "", phone: "", customData: {} });
     }
     setIsFormOpen(true);
   };
@@ -242,16 +256,47 @@ export function ContactsClient() {
 
       {/* Modals and Dialogs */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <DialogHeader><DialogTitle>{selectedContact ? "Editar Contato" : "Adicionar Contato"}</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Nome</FormLabel><FormControl><Input placeholder="Nome completo" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="email@dominio.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Telefone</FormLabel><FormControl><Input placeholder="(XX) XXXXX-XXXX" {...field} /></FormControl><FormMessage /></FormItem> )} />
-              </div>
-              <DialogFooter>
+              <ScrollArea className="h-[60vh] p-1">
+                <div className="space-y-4 p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Nome</FormLabel><FormControl><Input placeholder="Nome completo" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="email@dominio.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                    <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>Telefone</FormLabel><FormControl><Input placeholder="(XX) XXXXX-XXXX" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                  </div>
+                  {customFields.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t">
+                         <h4 className="text-md font-medium">Informações Adicionais</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {customFields.map((field) => (
+                                <FormField
+                                    key={field.id}
+                                    control={form.control}
+                                    name={`customData.${field.key}`}
+                                    render={({ field: formField }) => (
+                                        <FormItem>
+                                            <FormLabel>{field.label}</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    type={field.fieldType} 
+                                                    {...formField} 
+                                                    value={formField.value || ''}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              <DialogFooter className="border-t pt-4 mt-4">
                 <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar</Button>
               </DialogFooter>

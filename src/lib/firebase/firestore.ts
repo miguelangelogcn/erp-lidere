@@ -401,6 +401,7 @@ export interface Contact {
   phone?: string;
   userId?: string;
   tags?: string[];
+  customData?: { [key: string]: any };
 }
 export async function getContacts(): Promise<Contact[]> {
   const contactsCol = collection(db, "contacts");
@@ -412,10 +413,10 @@ export async function getStudentsFromContacts(): Promise<Contact[]> {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
 }
-export async function addContact(data: Omit<Contact, 'id' | 'userId' | 'tags'> & { tags?: string[] }) {
+export async function addContact(data: Omit<Contact, 'id' | 'userId' | 'tags'>) {
     await addDoc(collection(db, "contacts"), {
         ...data,
-        tags: data.tags || []
+        tags: [],
     });
 }
 export async function updateContact(id: string, data: Partial<Contact>) {
