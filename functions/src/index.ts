@@ -2,27 +2,11 @@ import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as nodemailer from "nodemailer";
 import {FieldValue} from "firebase-admin/firestore";
-import {defineString} from "firebase-functions/params";
-
-const emailHost = defineString("EMAIL_HOST");
-const emailPort = defineString("EMAIL_PORT");
-const emailUser = defineString("EMAIL_USER");
-const emailPass = defineString("EMAIL_PASS");
-const emailFrom = defineString("EMAIL_FROM");
 
 admin.initializeApp();
 
 export const processDispatchQueue = onDocumentCreated(
-  {
-    document: "dispatches/{dispatchId}",
-    secrets: [
-      "EMAIL_HOST",
-      "EMAIL_PORT",
-      "EMAIL_USER",
-      "EMAIL_PASS",
-      "EMAIL_FROM",
-    ],
-  },
+  "dispatches/{dispatchId}",
   async (event) => {
     const dispatchDoc = event.data;
     if (!dispatchDoc) {
@@ -50,8 +34,8 @@ export const processDispatchQueue = onDocumentCreated(
 
       let contacts: admin.firestore.DocumentData[] = [];
       if (campaignData.segmentType === "tags" && campaignData.targetTags) {
-        const q = admin.firestore().collection("contacts")
-          .where("tags", "array-contains-any", campaignData.targetTags);
+        // eslint-disable-next-line max-len
+        const q = admin.firestore().collection("contacts").where("tags", "array-contains-any", campaignData.targetTags);
         const contactsSnapshot = await q.get();
         contacts = contactsSnapshot.docs.map((doc) => doc.data());
       } else if (campaignData.contactIds?.length > 0) {
@@ -59,7 +43,7 @@ export const processDispatchQueue = onDocumentCreated(
           .where(
             admin.firestore.FieldPath.documentId(),
             "in",
-            campaignData.contactIds
+            campaignData.contactIds,
           );
         const contactsSnapshot = await q.get();
         contacts = contactsSnapshot.docs.map((doc) => doc.data());
@@ -70,20 +54,27 @@ export const processDispatchQueue = onDocumentCreated(
       }
 
       const transporter = nodemailer.createTransport({
-        host: emailHost.value(),
-        port: Number(emailPort.value()),
-        secure: Number(emailPort.value()) === 465,
+        host: process.env.EMAIL_HOST,
+        port: Number(process.env.EMAIL_PORT),
+        secure: Number(process.env.EMAIL_PORT) === 465,
         auth: {
-          user: emailUser.value(),
-          pass: emailPass.value(),
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
         },
       });
 
+      // eslint-disable-next-line max-len
       console.log(`Iniciando envio para ${contacts.length} contatos.`);
       for (const contact of contacts) {
+        const currentDoc = await dispatchDoc.ref.get();
+        if (!currentDoc.exists) {
+          // eslint-disable-next-line max-len
+          console.log(`Disparo ${dispatchId} foi cancelado. Parando.`);
+          break;
+        }
         if (contact.email && campaignData.emailContent) {
           await transporter.sendMail({
-            from: emailFrom.value(),
+            from: process.env.EMAIL_FROM,
             to: contact.email,
             subject: campaignData.emailContent.subject,
             text: campaignData.emailContent.body,
@@ -98,10 +89,12 @@ export const processDispatchQueue = onDocumentCreated(
         status: "completed",
         completedAt: FieldValue.serverTimestamp(),
       });
+      // eslint-disable-next-line max-len
       console.log(`Disparo ${dispatchId} concluído com sucesso.`);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ?
         error.message : "Ocorreu um erro desconhecido";
+      // eslint-disable-next-line max-len
       console.error(`Falha ao processar o disparo ${dispatchId}:`, errorMessage);
       await dispatchDoc.ref.update({
         status: "failed",
