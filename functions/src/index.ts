@@ -6,7 +6,7 @@ import {FieldValue} from "firebase-admin/firestore";
 admin.initializeApp();
 
 export const processDispatchQueue = onDocumentCreated(
-  "dispatches/{dispatchId}",
+  {document: "dispatches/{dispatchId}", runtime: {node: "20"}},
   async (event) => {
     const dispatchDoc = event.data;
     if (!dispatchDoc) {
