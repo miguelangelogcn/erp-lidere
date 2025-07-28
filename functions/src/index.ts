@@ -1,10 +1,7 @@
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
-import {setGlobalOptions} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import * as nodemailer from "nodemailer";
 import {FieldValue} from "firebase-admin/firestore";
-
-setGlobalOptions({runtime: {node: "20"}});
 
 admin.initializeApp();
 
@@ -19,6 +16,7 @@ export const processDispatchQueue = onDocumentCreated("dispatches/{dispatchId}",
     const dispatchId = event.params.dispatchId;
 
     try {
+      // eslint-disable-next-line max-len
       console.log(`Processando disparo: ${dispatchId}`);
       await dispatchDoc.ref.update({
         status: "processing",
@@ -31,6 +29,7 @@ export const processDispatchQueue = onDocumentCreated("dispatches/{dispatchId}",
       const campaignData = campaignSnap.data();
 
       if (!campaignData) {
+        // eslint-disable-next-line max-len
         throw new Error(`Campanha ${dispatchData.campaignId} não encontrada.`);
       }
 
@@ -41,6 +40,7 @@ export const processDispatchQueue = onDocumentCreated("dispatches/{dispatchId}",
         const contactsSnapshot = await q.get();
         contacts = contactsSnapshot.docs.map((doc) => doc.data());
       } else if (campaignData.contactIds?.length > 0) {
+        // eslint-disable-next-line max-len
         const q = admin.firestore().collection("contacts")
           .where(
             admin.firestore.FieldPath.documentId(),
@@ -52,6 +52,7 @@ export const processDispatchQueue = onDocumentCreated("dispatches/{dispatchId}",
       }
 
       if (contacts.length === 0) {
+        // eslint-disable-next-line max-len
         throw new Error("Nenhum contato encontrado para esta campanha.");
       }
 
