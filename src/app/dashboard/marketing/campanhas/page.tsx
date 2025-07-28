@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Campaign, getCampaigns, deleteCampaign } from "@/lib/firebase/firestore";
+import { Campaign, getCampaigns, deleteCampaign, getDispatchesByCampaignId } from "@/lib/firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, MoreHorizontal, Edit, Trash, Loader2 } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Edit, Trash, Loader2, Send } from "lucide-react";
 
 export default function CampanhasPage() {
   const router = useRouter();
@@ -23,6 +23,7 @@ export default function CampanhasPage() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [dispatchingId, setDispatchingId] = useState<string | null>(null);
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -59,6 +60,24 @@ export default function CampanhasPage() {
       setActionLoading(false);
     }
   };
+
+  const handleDispatch = async (campaign: Campaign) => {
+      setDispatchingId(campaign.id);
+      try {
+        const response = await fetch(`/api/marketing/campanhas/${campaign.id}/send`, {
+            method: 'POST',
+        });
+        if(!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Falha ao enfileirar campanha.');
+        }
+        toast({ title: "Sucesso", description: "Campanha enfileirada para envio." });
+      } catch (error) {
+        toast({ variant: "destructive", title: "Erro", description: (error as Error).message });
+      } finally {
+        setDispatchingId(null);
+      }
+  }
 
   return (
     <div className="space-y-4">
@@ -105,6 +124,14 @@ export default function CampanhasPage() {
                       <TableCell>{campaign.contactIds.length}</TableCell>
                       <TableCell>{campaign.createdAt ? format(campaign.createdAt.toDate(), "dd/MM/yyyy") : "-"}</TableCell>
                       <TableCell className="text-right">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDispatch(campaign)}
+                            disabled={dispatchingId === campaign.id}
+                        >
+                            {dispatchingId === campaign.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">

@@ -102,7 +102,6 @@ export const processDispatchQueue = onDocumentCreated(
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ?
         error.message : "Ocorreu um erro desconhecido";
-      // eslint-disable-next-line max-len
       console.error(`Falha ao processar o disparo ${dispatchId}:`, errorMessage);
       await dispatchDoc.ref.update({
         status: "failed",

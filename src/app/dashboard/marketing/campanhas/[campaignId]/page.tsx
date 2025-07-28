@@ -81,13 +81,13 @@ export default function EditCampanhaPage() {
     setLoading(true);
     try {
       if (isNew) {
-        await addCampaign(values);
+        const newCampaignId = await addCampaign(values);
         toast({ title: "Sucesso!", description: "Campanha criada com sucesso." });
+        router.push(`/dashboard/marketing/campanhas/${newCampaignId}`);
       } else {
         await updateCampaign(campaignId, values);
         toast({ title: "Sucesso!", description: "Campanha atualizada." });
       }
-      router.push('/dashboard/marketing/campanhas');
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar a campanha." });
     } finally {
@@ -100,7 +100,7 @@ export default function EditCampanhaPage() {
     ? "Preencha os detalhes abaixo para criar sua campanha de e-mail."
     : "Edite os detalhes da sua campanha e envie novamente se necessário.";
 
-  if (pageLoading) {
+  if (pageLoading && !isNew) {
       return (
           <div className="space-y-4">
               <Skeleton className="h-8 w-48" />
@@ -208,4 +208,3 @@ export default function EditCampanhaPage() {
     </div>
   );
 }
-

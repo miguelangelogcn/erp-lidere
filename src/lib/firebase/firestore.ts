@@ -647,10 +647,11 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
 }
 
 export async function addCampaign(data: Omit<Campaign, 'id' | 'createdAt'>) {
-    await addDoc(collection(db, 'campaigns'), {
+    const docRef = await addDoc(collection(db, 'campaigns'), {
         ...data,
         createdAt: serverTimestamp()
     });
+    return docRef.id;
 }
 
 export async function updateCampaign(id: string, data: Partial<Omit<Campaign, 'id' | 'createdAt'>>) {
