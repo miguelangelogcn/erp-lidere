@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
-import { Campaign, Contact, getContacts, getCampaign, updateCampaign } from "@/lib/firebase/firestore";
+import { Contact, getContacts, getCampaign, updateCampaign, addCampaign } from "@/lib/firebase/firestore";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -55,7 +55,12 @@ export default function EditCampanhaPage() {
             if(!isNew && campaignId) {
                 const campaignData = await getCampaign(campaignId);
                 if(campaignData) {
-                    form.reset(campaignData);
+                    form.reset({
+                      name: campaignData.name,
+                      subject: campaignData.subject,
+                      body: campaignData.body,
+                      contactIds: campaignData.contactIds || [],
+                    });
                 } else {
                      toast({ variant: "destructive", title: "Erro", description: "Campanha não encontrada." });
                      router.push('/dashboard/marketing/campanhas');
@@ -76,9 +81,7 @@ export default function EditCampanhaPage() {
     setLoading(true);
     try {
       if (isNew) {
-        // Logic to add a new campaign will be needed here.
-        // For now, let's assume an addCampaign function exists.
-        // await addCampaign(values);
+        await addCampaign(values);
         toast({ title: "Sucesso!", description: "Campanha criada com sucesso." });
       } else {
         await updateCampaign(campaignId, values);
@@ -197,7 +200,7 @@ export default function EditCampanhaPage() {
           <div className="flex justify-end">
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isNew ? "Salvar e Enviar Campanha" : "Salvar Alterações"}
+              {isNew ? "Criar Campanha" : "Salvar Alterações"}
             </Button>
           </div>
         </form>
@@ -205,3 +208,4 @@ export default function EditCampanhaPage() {
     </div>
   );
 }
+

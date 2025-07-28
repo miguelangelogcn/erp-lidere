@@ -634,6 +634,35 @@ export async function deleteFinancialDebt(id: string) {
 }
 
 // Campaigns
+export async function getCampaigns(): Promise<Campaign[]> {
+    const campaignsCol = collection(db, "campaigns");
+    const querySnapshot = await getDocs(campaignsCol);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign));
+}
+
+export async function getCampaign(id: string): Promise<Campaign | null> {
+    const campaignRef = doc(db, 'campaigns', id);
+    const campaignSnap = await getDoc(campaignRef);
+    return campaignSnap.exists() ? { id: campaignSnap.id, ...campaignSnap.data() } as Campaign : null;
+}
+
+export async function addCampaign(data: Omit<Campaign, 'id' | 'createdAt'>) {
+    await addDoc(collection(db, 'campaigns'), {
+        ...data,
+        createdAt: serverTimestamp()
+    });
+}
+
+export async function updateCampaign(id: string, data: Partial<Omit<Campaign, 'id' | 'createdAt'>>) {
+    const campaignRef = doc(db, 'campaigns', id);
+    await updateDoc(campaignRef, data);
+}
+
+export async function deleteCampaign(id: string) {
+    const campaignRef = doc(db, "campaigns", id);
+    await deleteDoc(campaignRef);
+}
+
 export async function getDispatchesByCampaignId(campaignId: string): Promise<any[]> {
     const q = query(collection(db, 'dispatches'), where('campaignId', '==', campaignId));
     const querySnapshot = await getDocs(q);
