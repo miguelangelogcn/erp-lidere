@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -71,13 +72,6 @@ const employeeNavItems = [
       { href: "/dashboard/vendas/contatos", label: "Contatos", icon: Contact },
       { href: "/dashboard/vendas/empresas", label: "Empresas", icon: Building },
       { href: "/dashboard/vendas/pipelines", label: "Pipelines", icon: KanbanSquare },
-    ]
-  },
-  { 
-    id: "marketing",
-    label: "Marketing", 
-    subItems: [
-      { href: "/dashboard/marketing/campanhas", label: "Campanhas", icon: Megaphone },
     ]
   },
 ];

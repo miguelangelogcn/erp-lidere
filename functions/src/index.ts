@@ -1,12 +1,9 @@
-// functions/src/index.ts
-
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as nodemailer from "nodemailer";
 import {FieldValue} from "firebase-admin/firestore";
 import {defineString} from "firebase-functions/params";
 
-// Define as variáveis de ambiente que a função irá usar
 const emailHost = defineString("EMAIL_HOST");
 const emailPort = defineString("EMAIL_PORT");
 const emailUser = defineString("EMAIL_USER");
@@ -18,8 +15,13 @@ admin.initializeApp();
 export const processDispatchQueue = onDocumentCreated(
   {
     document: "dispatches/{dispatchId}",
-    // Garante que a função tenha acesso à internet e aos segredos
-    secrets: ["EMAIL_HOST", "EMAIL_PORT", "EMAIL_USER", "EMAIL_PASS", "EMAIL_FROM"],
+    secrets: [
+      "EMAIL_HOST",
+      "EMAIL_PORT",
+      "EMAIL_USER",
+      "EMAIL_PASS",
+      "EMAIL_FROM",
+    ],
   },
   async (event) => {
     const dispatchDoc = event.data;
@@ -54,8 +56,11 @@ export const processDispatchQueue = onDocumentCreated(
         contacts = contactsSnapshot.docs.map((doc) => doc.data());
       } else if (campaignData.contactIds?.length > 0) {
         const q = admin.firestore().collection("contacts")
-          .where(admin.firestore.FieldPath.documentId(),
-            "in", campaignData.contactIds);
+          .where(
+            admin.firestore.FieldPath.documentId(),
+            "in",
+            campaignData.contactIds
+          );
         const contactsSnapshot = await q.get();
         contacts = contactsSnapshot.docs.map((doc) => doc.data());
       }
@@ -83,7 +88,6 @@ export const processDispatchQueue = onDocumentCreated(
             subject: campaignData.emailContent.subject,
             text: campaignData.emailContent.body,
           });
-          // Atualiza o progresso a cada envio
           await dispatchDoc.ref.update({
             processedContacts: FieldValue.increment(1),
           });
@@ -98,6 +102,7 @@ export const processDispatchQueue = onDocumentCreated(
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ?
         error.message : "Ocorreu um erro desconhecido";
+      // eslint-disable-next-line max-len
       console.error(`Falha ao processar o disparo ${dispatchId}:`, errorMessage);
       await dispatchDoc.ref.update({
         status: "failed",

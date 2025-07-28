@@ -625,82 +625,9 @@ export async function deleteFinancialDebt(id: string) {
     await deleteDoc(debtRef);
 }
 
-
-// Marketing
-export interface Campaign {
-  id: string;
-  name: string;
-  contactIds?: string[];
-  segmentType: 'individual' | 'tags';
-  targetTags?: string[];
-  channels: ('email' | 'whatsapp')[];
-  emailContent?: {
-    subject: string;
-    body: string;
-  };
-  createdAt: any;
-  whatsappContent?: {
-      templateName: string;
-  }
-}
-
-export interface Dispatch {
-  id: string;
-  campaignId: string;
-  campaignName: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
-  totalContacts: number;
-  processedContacts: number;
-  createdAt: any; // Timestamp
-  startedAt: any; // Timestamp
-  completedAt: any; // Timestamp
-  error?: string;
-}
-
-export async function getCampaigns(): Promise<Campaign[]> {
-  const campaignsCol = collection(db, "campaigns");
-  const querySnapshot = await getDocs(campaignsCol);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Campaign));
-}
-
-export async function updateCampaign(campaignId: string, data: Partial<Omit<Campaign, 'id' | 'createdAt'>>) {
-    const campaignRef = doc(db, 'campaigns', campaignId);
-    await updateDoc(campaignRef, data);
-}
-
-export async function getDispatchesByCampaignId(campaignId: string): Promise<Dispatch[]> {
+// Campaigns
+export async function getDispatchesByCampaignId(campaignId: string): Promise<any[]> {
     const q = query(collection(db, 'dispatches'), where('campaignId', '==', campaignId));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        dispatchDate: doc.data().dispatchDate.toDate()
-    } as Dispatch)).sort((a,b) => b.dispatchDate - a.dispatchDate);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
-
-export function getOngoingDispatches(callback: (dispatches: Dispatch[]) => void): () => void {
-    const q = query(collection(db, 'dispatches'), where('status', 'in', ['processing', 'queued']));
-    return onSnapshot(q, (querySnapshot) => {
-        const dispatches = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-        } as Dispatch));
-        callback(dispatches);
-    });
-}
-
-
-export async function getAllTags(): Promise<string[]> {
-    const contactsSnapshot = await getDocs(collection(db, 'contacts'));
-    const allTags = new Set<string>();
-    contactsSnapshot.forEach(doc => {
-        const contact = doc.data() as Contact;
-        if (contact.tags && Array.isArray(contact.tags)) {
-            contact.tags.forEach(tag => allTags.add(tag));
-        }
-    });
-    return Array.from(allTags).sort();
-}
-    
-
-    
