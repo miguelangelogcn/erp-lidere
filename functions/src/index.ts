@@ -3,26 +3,22 @@ import * as admin from "firebase-admin";
 import * as nodemailer from "nodemailer";
 import {FieldValue} from "firebase-admin/firestore";
 
-// --- Validação robusta das variáveis de ambiente ---
-const
-  env = process.env;
+// Validação robusta das variáveis de ambiente
+const env = process.env;
+const requiredEnvs = [
+  "EMAIL_HOST", "EMAIL_PORT", "EMAIL_USER", "EMAIL_PASS", "EMAIL_FROM",
+];
 
-if (!env.EMAIL_HOST || !env.EMAIL_PORT || !env.EMAIL_USER || !env.EMAIL_PASS || !env.EMAIL_FROM) {
-  throw new Error(
-    "Uma ou mais variáveis de ambiente de e-mail (EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM) não estão definidas no arquivo .env.lidere-8dq24"
-  );
+for (const key of requiredEnvs) {
+  if (!env[key]) {
+    throw new Error(`Variável de ambiente obrigatória ${key} não definida.`);
+  }
 }
 
-const EMAIL_HOST = env.EMAIL_HOST;
-const EMAIL_PORT = parseInt(env.EMAIL_PORT, 10);
-const EMAIL_USER = env.EMAIL_USER;
-const EMAIL_PASS = env.EMAIL_PASS;
-const EMAIL_FROM = env.EMAIL_FROM;
-
+const EMAIL_PORT = parseInt(env.EMAIL_PORT as string, 10);
 if (isNaN(EMAIL_PORT)) {
-    throw new Error("A variável de ambiente EMAIL_PORT não é um número válido.");
+  throw new Error("EMAIL_PORT não é um número válido.");
 }
-// --- Fim da validação ---
 
 admin.initializeApp();
 
@@ -57,8 +53,7 @@ export const processDispatchQueue = onDocumentCreated(
       if (campaignData.segmentType === "tags" && campaignData.targetTags) {
         const q = admin.firestore().collection("contacts")
           .where("tags", "array-contains-any", campaignData.targetTags);
-        const contactsSnapshot = await q.get();
-        contacts = contactsSnapshot.docs.map((doc) => doc.data());
+        contacts = (await q.get()).docs.map((doc) => doc.data());
       } else if (campaignData.contactIds?.length > 0) {
         const q = admin.firestore().collection("contacts")
           .where(
@@ -66,8 +61,7 @@ export const processDispatchQueue = onDocumentCreated(
             "in",
             campaignData.contactIds
           );
-        const contactsSnapshot = await q.get();
-        contacts = contactsSnapshot.docs.map((doc) => doc.data());
+        contacts = (await q.get()).docs.map((doc) => doc.data());
       }
 
       if (contacts.length === 0) {
@@ -75,12 +69,12 @@ export const processDispatchQueue = onDocumentCreated(
       }
 
       const transporter = nodemailer.createTransport({
-        host: EMAIL_HOST,
+        host: env.EMAIL_HOST,
         port: EMAIL_PORT,
         secure: EMAIL_PORT === 465,
         auth: {
-          user: EMAIL_USER,
-          pass: EMAIL_PASS,
+          user: env.EMAIL_USER,
+          pass: env.EMAIL_PASS,
         },
       });
 
@@ -88,7 +82,7 @@ export const processDispatchQueue = onDocumentCreated(
       for (const contact of contacts) {
         if (contact.email && campaignData.emailContent) {
           await transporter.sendMail({
-            from: EMAIL_FROM,
+            from: env.EMAIL_FROM,
             to: contact.email,
             subject: campaignData.emailContent.subject,
             text: campaignData.emailContent.body,
@@ -105,14 +99,14 @@ export const processDispatchQueue = onDocumentCreated(
       });
       console.log(`Disparo ${dispatchId} concluído com sucesso.`);
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ?
+      const msg = error instanceof Error ?
         error.message : "Ocorreu um erro desconhecido";
-      console.error(`Falha ao processar o disparo ${dispatchId}:`, errorMessage);
+      console.error(`Falha ao processar o disparo ${dispatchId}:`, msg);
       await dispatchDoc.ref.update({
         status: "failed",
-        error: errorMessage,
+        error: msg,
         completedAt: FieldValue.serverTimestamp(),
       });
     }
-  }
+  },
 );
