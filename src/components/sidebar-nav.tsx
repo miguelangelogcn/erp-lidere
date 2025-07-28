@@ -67,9 +67,7 @@ const employeeNavItems = [
     { 
     id: "marketing",
     label: "Marketing", 
-    subItems: [
-      { href: "/dashboard/marketing/campanhas", label: "Campanhas", icon: Megaphone },
-    ]
+    subItems: []
   },
   { 
     id: "vendas",
@@ -109,6 +107,7 @@ export function SidebarNav({ isCollapsed, setIsCollapsed }: SidebarNavProps) {
       <nav className="flex-1 space-y-1 p-2">
         {navItems.map((item) => (
           'subItems' in item ? (
+            (item.subItems.length > 0) && (
             <div key={item.id} className="space-y-1">
               {!isCollapsed && (
                 <h4 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground/80 tracking-wider">
@@ -134,6 +133,7 @@ export function SidebarNav({ isCollapsed, setIsCollapsed }: SidebarNavProps) {
                 ))}
               </ul>
             </div>
+            )
           ) : (
             <Link
               key={item.href}
