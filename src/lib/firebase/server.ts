@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, cert, ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from "firebase-admin/firestore";
+import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, writeBatch } from "firebase-admin/firestore";
 
 let app;
 
@@ -31,4 +31,4 @@ const adminAuth = getAuth(app);
 const adminDb = getFirestore(app);
 
 // EXPORTAÇÕES CORRETAS (APENAS AS INSTÂNCIAS)
-export { app as adminApp, adminAuth, adminDb, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc };
+export { app as adminApp, adminAuth, adminDb, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, writeBatch };
