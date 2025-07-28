@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -63,6 +62,13 @@ const employeeNavItems = [
     subItems: [
        { href: "/dashboard/financeiro/contas", label: "Contas", icon: Wallet },
        { href: "/dashboard/financeiro/dividas", label: "Dívidas", icon: Landmark },
+    ]
+  },
+    { 
+    id: "marketing",
+    label: "Marketing", 
+    subItems: [
+      { href: "/dashboard/marketing/campanhas", label: "Campanhas", icon: Megaphone },
     ]
   },
   { 
