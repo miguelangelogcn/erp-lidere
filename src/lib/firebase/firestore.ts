@@ -1,4 +1,3 @@
-
 // src/lib/firebase/firestore.ts
 
 import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch, Timestamp } from "firebase/firestore";
@@ -96,6 +95,15 @@ export interface ActionPlanTask {
   status: 'pending' | 'completed' | 'validated';
   submittedText?: string;
   submittedFileUrl?: string;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  contactIds: string[];
+  createdAt: Timestamp;
 }
 
 

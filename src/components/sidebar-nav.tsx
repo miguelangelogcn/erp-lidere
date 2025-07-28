@@ -58,6 +58,13 @@ const employeeNavItems = [
     ]
   },
   { 
+    id: "marketing",
+    label: "Marketing", 
+    subItems: [
+      { href: "/dashboard/marketing/campanhas", label: "Campanhas", icon: Megaphone },
+    ]
+  },
+  { 
     id: "financeiro",
     label: "Financeiro", 
     subItems: [
