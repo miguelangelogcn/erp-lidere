@@ -1,5 +1,5 @@
 
-import { FieldsClient } from "./fields-client";
+import FieldsClient from "./fields-client";
 
 export default function SettingsContactsPage() {
   return (
