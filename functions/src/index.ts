@@ -3,23 +3,6 @@ import * as admin from "firebase-admin";
 import * as nodemailer from "nodemailer";
 import {FieldValue} from "firebase-admin/firestore";
 
-// Validação robusta das variáveis de ambiente
-const env = process.env;
-const requiredEnvs = [
-  "EMAIL_HOST", "EMAIL_PORT", "EMAIL_USER", "EMAIL_PASS", "EMAIL_FROM",
-];
-
-for (const key of requiredEnvs) {
-  if (!env[key]) {
-    throw new Error(`Variável de ambiente obrigatória ${key} não definida.`);
-  }
-}
-
-const EMAIL_PORT = parseInt(env.EMAIL_PORT as string, 10);
-if (isNaN(EMAIL_PORT)) {
-  throw new Error("EMAIL_PORT não é um número válido.");
-}
-
 admin.initializeApp();
 
 export const processDispatchQueue = onDocumentCreated(
@@ -30,11 +13,16 @@ export const processDispatchQueue = onDocumentCreated(
       console.log("Nenhum dado associado ao evento.");
       return;
     }
+
     const dispatchData = dispatchDoc.data();
     const dispatchId = event.params.dispatchId;
 
     try {
-      console.log(`Processando disparo: ${dispatchId}`);
+      // As variáveis de ambiente são lidas aqui, somente no ambiente
+      // da nuvem, evitando o erro da análise local.
+      const env = process.env;
+      const port = parseInt(env.EMAIL_PORT || "465", 10);
+
       await dispatchDoc.ref.update({
         status: "processing",
         startedAt: FieldValue.serverTimestamp(),
@@ -70,8 +58,8 @@ export const processDispatchQueue = onDocumentCreated(
 
       const transporter = nodemailer.createTransport({
         host: env.EMAIL_HOST,
-        port: EMAIL_PORT,
-        secure: EMAIL_PORT === 465,
+        port: port,
+        secure: port === 465,
         auth: {
           user: env.EMAIL_USER,
           pass: env.EMAIL_PASS,
