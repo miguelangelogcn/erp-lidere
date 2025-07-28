@@ -21,11 +21,11 @@ export async function POST(request: Request) {
       );
     }
     
-    const { name, body, contactIds } = validation.data;
+    const { name, body: campaignBody, contactIds } = validation.data;
 
     const newCampaignRef = await adminDb.collection("campaigns").add({
         name,
-        body,
+        body: campaignBody,
         contactIds,
         createdAt: FieldValue.serverTimestamp(),
     });
