@@ -6,47 +6,49 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File;
+    const mappingString = formData.get('mapping') as string;
 
-    if (!file) {
-      return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
+    if (!file || !mappingString) {
+      return NextResponse.json({ error: 'Dados incompletos para importação.' }, { status: 400 });
     }
 
-    // Lê o conteúdo do arquivo como texto
+    const mapping = JSON.parse(mappingString);
     const fileContent = await file.text();
 
-    // Usa o Papaparse para analisar o CSV
     const parsedData = Papa.parse(fileContent, {
-      header: true, // Trata a primeira linha como cabeçalho
+      header: true,
       skipEmptyLines: true,
     });
 
     const contacts = parsedData.data;
-
-    if (!contacts || contacts.length === 0) {
-      return NextResponse.json({ error: 'O arquivo CSV está vazio ou em formato inválido.' }, { status: 400 });
-    }
-
-    // Usa um lote para adicionar todos os contatos de uma vez
     const batch = adminDb.batch();
     const contactsCollection = adminDb.collection('contacts');
 
-    contacts.forEach((contact: any) => {
-      // Garante que apenas os campos esperados sejam adicionados
-      const newContact = {
-        name: contact.nome || '',
-        email: contact.email || '',
-        phone: contact.telefone || '',
+    contacts.forEach((row: any) => {
+      const newContact: { [key: string]: any } = {
         createdAt: new Date(),
       };
-      const docRef = contactsCollection.doc(); // Cria um novo documento com ID aleatório
-      batch.set(docRef, newContact);
+
+      // Usa o mapeamento para preencher o objeto do contato
+      for (const csvHeader in mapping) {
+        const systemField = mapping[csvHeader]; // Ex: 'name', 'email', 'phone'
+        if (systemField !== 'ignore' && row[csvHeader]) {
+          newContact[systemField] = row[csvHeader];
+        }
+      }
+      
+      // Só adiciona ao lote se tiver pelo menos um campo mapeado
+      if (Object.keys(newContact).length > 1) {
+          const docRef = contactsCollection.doc();
+          batch.set(docRef, newContact);
+      }
     });
 
     await batch.commit();
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Importação concluída com sucesso!',
-      count: contacts.length 
+      count: contacts.length,
     });
 
   } catch (error) {
