@@ -11,8 +11,8 @@ const campaignSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const validation = campaignSchema.safeParse(body);
+    const jsonBody = await request.json();
+    const validation = campaignSchema.safeParse(jsonBody);
 
     if (!validation.success) {
       return NextResponse.json(
