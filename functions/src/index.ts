@@ -1,12 +1,14 @@
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {setGlobalOptions} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import * as nodemailer from "nodemailer";
 import {FieldValue} from "firebase-admin/firestore";
 
+setGlobalOptions({runtime: {node: "20"}});
+
 admin.initializeApp();
 
-export const processDispatchQueue = onDocumentCreated(
-  {document: "dispatches/{dispatchId}", runtime: {node: "20"}},
+export const processDispatchQueue = onDocumentCreated("dispatches/{dispatchId}",
   async (event) => {
     const dispatchDoc = event.data;
     if (!dispatchDoc) {
