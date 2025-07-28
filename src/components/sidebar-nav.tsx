@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -24,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Megaphone,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -76,6 +78,14 @@ const employeeNavItems = [
       { href: "/dashboard/vendas/contatos", label: "Contatos", icon: Contact },
       { href: "/dashboard/vendas/empresas", label: "Empresas", icon: Building },
       { href: "/dashboard/vendas/pipelines", label: "Pipelines", icon: KanbanSquare },
+    ]
+  },
+   { 
+    id: "settings",
+    label: "Configurações", 
+    subItems: [
+      { href: "/dashboard/settings/employees", label: "Campos de Funcionários", icon: Users },
+      { href: "/dashboard/settings/contacts", label: "Campos de Contatos", icon: Contact },
     ]
   },
 ];
