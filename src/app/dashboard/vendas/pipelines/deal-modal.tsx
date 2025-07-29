@@ -21,7 +21,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash } from "lucide-react";
+import { Loader2, Trash, Check, ChevronsUpDown } from "lucide-react";
 import {
   Deal,
   Pipeline,
@@ -38,6 +38,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatCurrency } from "@/lib/utils";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandInput, CommandGroup, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+
 
 const dealFormSchema = z.object({
   title: z.string().min(1, "O título é obrigatório."),
@@ -190,7 +194,63 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
                   <FormField control={form.control} name="stage" render={({ field }) => (<FormItem><FormLabel>Estágio</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{stages.map(s=>(<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="contactId" render={({ field }) => (<FormItem><FormLabel>Contato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger></FormControl><SelectContent>{contacts.map(c=>(<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                  <FormField
+                      control={form.control}
+                      name="contactId"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col pt-2">
+                          <FormLabel>Contato</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                >
+                                  {field.value
+                                    ? contacts.find(
+                                        (contact) => contact.id === field.value
+                                      )?.name
+                                    : "Selecione um contato"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                              <Command>
+                                <CommandInput placeholder="Buscar contato..." />
+                                <CommandList>
+                                <CommandEmpty>Nenhum contato encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {contacts.map((contact) => (
+                                    <CommandItem
+                                      value={contact.name}
+                                      key={contact.id}
+                                      onSelect={() => {
+                                        form.setValue("contactId", contact.id)
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          contact.id === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {contact.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   <FormField control={form.control} name="ownerId" render={({ field }) => (<FormItem><FormLabel>Responsável</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger></FormControl><SelectContent>{employees.map(e=>(<SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
                 <DialogFooter className="pt-4">
