@@ -1,111 +1,87 @@
-
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/server';
 import { FieldValue } from 'firebase-admin/firestore';
 
-// Função para mesclar dois objetos, priorizando dados existentes no primário
-// e tratando o objeto aninhado `customData` e o array `tags`.
-function mergeContactData(primary: any, secondary: any): any {
-    const merged = { ...primary };
-
-    // Mescla campos no nível raiz
-    for (const key in secondary) {
-        if (key !== 'customData' && key !== 'tags' && !merged[key] && secondary[key]) {
-            merged[key] = secondary[key];
-        }
-    }
-
-    // Mescla o objeto customData
-    if (secondary.customData) {
-        if (!merged.customData) {
-            merged.customData = {};
-        }
-        for (const customKey in secondary.customData) {
-            if (!merged.customData[customKey] && secondary.customData[customKey]) {
-                merged.customData[customKey] = secondary.customData[customKey];
-            }
-        }
-    }
-    
-    // Mescla o array de tags, evitando duplicatas
-    const primaryTags = Array.isArray(primary.tags) ? primary.tags : [];
-    const secondaryTags = Array.isArray(secondary.tags) ? secondary.tags : [];
-    merged.tags = [...new Set([...primaryTags, ...secondaryTags])];
-
-    return merged;
-}
-
-
 export async function POST(req: Request) {
   try {
-    const { reportId } = await req.json(); // Recebe um único reportId (email) para processar
+    const { reportId } = await req.json(); // Esperamos o ID do relatório a ser mesclado
 
     if (!reportId) {
-      return NextResponse.json({ error: 'Nenhum ID de relatório fornecido.' }, { status: 400 });
+      return NextResponse.json({ error: 'ID do relatório de duplicatas não fornecido.' }, { status: 400 });
     }
 
     const reportRef = adminDb.collection('duplicatesReport').doc(reportId);
-    let mergedCount = 0;
 
+    // Usamos uma transação para garantir que todas as operações ocorram ou nenhuma ocorra
     await adminDb.runTransaction(async (transaction) => {
-        const reportDoc = await transaction.get(reportRef);
-        if (!reportDoc.exists || reportDoc.data()?.status !== 'pending') {
-            throw new Error(`Relatório para "${reportId}" não encontrado ou já processado.`);
-        }
+      const reportDoc = await transaction.get(reportRef);
+      if (!reportDoc.exists) {
+        throw new Error('Relatório de duplicatas não encontrado.');
+      }
 
-        const reportData = reportDoc.data()!;
-        const { contactIds, primaryContactId } = reportData;
-        
-        if (!Array.isArray(contactIds) || contactIds.length < 2) {
-             throw new Error(`O relatório para "${reportId}" não contém duplicatas válidas.`);
-        }
+      const reportData = reportDoc.data();
+      const contactIds = reportData?.contactIds;
 
-        // Busca todos os documentos de contato de uma vez
-        const contactRefs = contactIds.map(id => adminDb.collection('contacts').doc(id));
-        const contactDocs = await transaction.getAll(...contactRefs);
+      if (!contactIds || contactIds.length < 2) {
+        throw new Error('O relatório não contém contatos para mesclar.');
+      }
+      
+      // Busca todos os documentos de contato dentro da transação
+      const contactRefs = contactIds.map((id: string) => adminDb.collection('contacts').doc(id));
+      const contactDocs = await transaction.getAll(...contactRefs);
 
-        const primaryDoc = contactDocs.find(doc => doc.id === primaryContactId);
-        if (!primaryDoc || !primaryDoc.exists) {
-            throw new Error(`Contato primário ${primaryContactId} não encontrado.`);
-        }
+      // Encontra o contato mais recente para ser o principal
+      const contacts = contactDocs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
 
-        let mergedData = primaryDoc.data()!;
-        const secondaryDocs = contactDocs.filter(doc => doc.id !== primaryContactId);
+      const primaryContact = contacts[0];
+      const secondaryContacts = contacts.slice(1);
+      
+      const mergedData = { ...primaryContact };
+      if (!mergedData.customData) {
+        mergedData.customData = {};
+      }
 
-        // Itera sobre os contatos secundários para mesclar os dados
-        for (const secondaryDoc of secondaryDocs) {
-            if (secondaryDoc.exists) {
-                mergedData = mergeContactData(mergedData, secondaryDoc.data()!);
-            }
-        }
-
-        // Atualiza o documento principal com os dados mesclados
-        transaction.set(primaryDoc.ref, mergedData);
-
-        // Deleta os documentos secundários
-        for (const secondaryDoc of secondaryDocs) {
-            if (secondaryDoc.exists) {
-                transaction.delete(secondaryDoc.ref);
-                mergedCount++;
-            }
-        }
-
-        // Atualiza o status do relatório
-        transaction.update(reportRef, {
-            status: 'merged',
-            mergedAt: FieldValue.serverTimestamp(),
-            finalContactId: primaryContactId
+      // Lógica de enriquecimento: preenche os campos vazios do contato principal
+      secondaryContacts.forEach(contact => {
+        Object.keys(contact).forEach(key => {
+          // Se o campo está vazio no principal e preenchido no secundário, copia o dado
+          if (!mergedData[key] && contact[key]) {
+            mergedData[key] = contact[key];
+          }
         });
+        
+        // Lógica de enriquecimento para campos customizáveis
+        if (contact.customData) {
+            Object.keys(contact.customData).forEach(customKey => {
+                if(!mergedData.customData[customKey] && contact.customData[customKey]) {
+                    mergedData.customData[customKey] = contact.customData[customKey];
+                }
+            });
+        }
+      });
+      
+      mergedData.updatedAt = FieldValue.serverTimestamp();
+
+      // 1. Atualiza o documento principal com os dados mesclados
+      const primaryRef = adminDb.collection('contacts').doc(primaryContact.id);
+      transaction.set(primaryRef, mergedData, { merge: true });
+
+      // 2. Deleta os contatos secundários
+      secondaryContacts.forEach(contact => {
+        const secondaryRef = adminDb.collection('contacts').doc(contact.id);
+        transaction.delete(secondaryRef);
+      });
+
+      // 3. Atualiza o status do relatório para "merged"
+      transaction.update(reportRef, { status: 'merged' });
     });
 
-    return NextResponse.json({ 
-      message: `Mesclagem do grupo "${reportId}" concluída! ${mergedCount} contato(s) foram mesclados no principal.`,
-      mergedCount: mergedCount
-    });
+    return NextResponse.json({ message: `Grupo ${reportId} mesclado com sucesso!` });
 
-  } catch (error) {
-    console.error("Erro na mesclagem de contatos: ", error);
-    const errorMessage = error instanceof Error ? error.message : 'Falha ao mesclar contatos.';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  } catch (error: any) {
+    console.error("Erro na mesclagem: ", error);
+    return NextResponse.json({ error: error.message || 'Falha ao mesclar contatos.' }, { status: 500 });
   }
 }
