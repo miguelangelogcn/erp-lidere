@@ -4,15 +4,12 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Comment {
   id: string;
   text: string;
-  author: string;
-  createdAt: any;
+  createdAt?: { toDate: () => Date };
 }
 
 interface DealCommentsProps {
@@ -28,20 +25,24 @@ export function DealComments({ dealId }: DealCommentsProps) {
 
   useEffect(() => {
     async function fetchComments() {
-      if (!dealId) return;
       setIsLoading(true);
       try {
         const response = await fetch(`/api/deals/${dealId}/comments`);
-        if (!response.ok) throw new Error("Não foi possível buscar os comentários");
-        const data = await response.json();
-        setComments(data);
-      } catch (error: any) {
-        toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+        if (response.ok) {
+          const data = await response.json();
+          setComments(data);
+        } else {
+          throw new Error('Falha ao buscar comentários');
+        }
+      } catch (error) {
+        toast({ title: 'Erro', description: 'Não foi possível carregar os comentários.', variant: 'destructive' });
       } finally {
         setIsLoading(false);
       }
     }
-    fetchComments();
+    if (dealId) {
+        fetchComments();
+    }
   }, [dealId, toast]);
 
   const handleSubmitComment = async () => {
@@ -58,13 +59,12 @@ export function DealComments({ dealId }: DealCommentsProps) {
       if (!response.ok) throw new Error('Falha ao salvar comentário');
 
       const savedComment = await response.json();
-      
-      const displayComment = {
+      // O timestamp do servidor pode não vir como um objeto Date, então normalizamos
+      const newCommentData = {
         ...savedComment,
-        createdAt: new Date() 
-      };
-
-      setComments([displayComment, ...comments]);
+        createdAt: { toDate: () => new Date() }
+      }
+      setComments([newCommentData, ...comments]);
       setNewComment('');
       toast({ title: 'Comentário adicionado!' });
 
@@ -83,35 +83,30 @@ export function DealComments({ dealId }: DealCommentsProps) {
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           disabled={isSubmitting}
-          rows={4}
         />
-        <Button onClick={handleSubmitComment} disabled={isSubmitting || !newComment.trim()}>
-          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-          Adicionar Comentário
+        <Button onClick={handleSubmitComment} disabled={isSubmitting}>
+          {isSubmitting ? 'Adicionando...' : 'Adicionar Comentário'}
         </Button>
       </div>
-
-       <ScrollArea className="h-64">
-            <div className="space-y-4 pr-4">
-                {isLoading ? (
-                    <div className="space-y-4">
-                        <Skeleton className="h-20 w-full" />
-                        <Skeleton className="h-20 w-full" />
-                    </div>
-                ) : comments.length > 0 ? (
-                    comments.map((comment) => (
-                        <div key={comment.id} className="text-sm p-3 bg-muted/50 rounded-md">
-                            <p className="whitespace-pre-wrap">{comment.text}</p>
-                            <p className="text-xs text-muted-foreground mt-2">
-                               {comment.author || 'Usuário'} - {comment.createdAt ? new Date(comment.createdAt.seconds * 1000).toLocaleString('pt-BR') : 'Agora mesmo'}
-                            </p>
-                        </div>
-                    ))
-                ) : (
-                   <p className="text-sm text-center text-muted-foreground pt-4">Nenhuma nota adicionada.</p>
-                )}
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        ) : (
+          comments.map((comment) => (
+            <div key={comment.id} className="p-3 bg-slate-50 rounded-md border text-sm">
+              <p className="text-gray-800 whitespace-pre-wrap">{comment.text}</p>
+              {comment.createdAt && (
+                <p className="text-xs text-gray-500 mt-2">
+                  {new Date(comment.createdAt.toDate()).toLocaleString()}
+                </p>
+              )}
             </div>
-        </ScrollArea>
+          ))
+        )}
+      </div>
     </div>
   );
 }
