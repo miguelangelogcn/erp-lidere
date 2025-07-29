@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,20 +9,49 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type ImportStep = 'selectFile' | 'mapFields' | 'importing';
+type CustomField = {
+  id: string;
+  key: string;
+  label: string;
+};
 
 export function ContactImporter() {
   const [step, setStep] = useState<ImportStep>('selectFile');
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<{ [key: string]: string }>({});
+  const [availableFields, setAvailableFields] = useState<any[]>([]);
   const { toast } = useToast();
 
-  const systemFields = [
-    { value: 'ignore', label: 'Ignorar esta coluna' },
-    { value: 'name', label: 'Nome do Contato' },
-    { value: 'email', label: 'Email' },
-    { value: 'phone', label: 'Telefone' },
-  ];
+  // Busca os campos customizáveis ao carregar o componente
+  useEffect(() => {
+    async function fetchCustomFields() {
+      try {
+        const response = await fetch('/api/settings/contact-fields');
+        if (!response.ok) throw new Error('Falha ao buscar campos customizáveis');
+        const customFields: CustomField[] = await response.json();
+        
+        // Monta a lista final de campos para o dropdown
+        const systemFields = [
+          { value: 'ignore', label: 'Ignorar esta coluna' },
+          { value: 'name', label: 'Nome do Contato (Padrão)' },
+          { value: 'email', label: 'Email (Padrão)' },
+          { value: 'phone', label: 'Telefone (Padrão)' },
+        ];
+        
+        const customFieldOptions = customFields.map(field => ({
+          value: `customData.${field.key}`, // Prefixo para identificar campos customizáveis
+          label: `${field.label} (Customizável)`,
+        }));
+
+        setAvailableFields([...systemFields, ...customFieldOptions]);
+
+      } catch (error: any) {
+        toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      }
+    }
+    fetchCustomFields();
+  }, [toast]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -33,25 +62,20 @@ export function ContactImporter() {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch('/api/contacts/parse-headers', {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await fetch('/api/contacts/parse-headers', { method: 'POST', body: formData });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       
       setHeaders(result.headers);
-      // Pré-mapeamento inteligente (opcional, mas ajuda o usuário)
+      
+      // Lógica de pré-mapeamento inicial
       const initialMapping: { [key: string]: string } = {};
       result.headers.forEach((h: string) => {
-        const lowerH = h.toLowerCase();
-        if (lowerH.includes('nome') || lowerH.includes('name')) initialMapping[h] = 'name';
-        else if (lowerH.includes('email')) initialMapping[h] = 'email';
-        else if (lowerH.includes('fone') || lowerH.includes('phone')) initialMapping[h] = 'phone';
-        else initialMapping[h] = 'ignore';
+        initialMapping[h] = 'ignore';
       });
       setMapping(initialMapping);
       setStep('mapFields');
+
     } catch (error: any) {
       toast({ title: 'Erro ao ler arquivo', description: error.message, variant: 'destructive' });
     }
@@ -70,10 +94,7 @@ export function ContactImporter() {
     formData.append('mapping', JSON.stringify(mapping));
 
     try {
-        const response = await fetch('/api/contacts/import', {
-            method: 'POST',
-            body: formData,
-        });
+        const response = await fetch('/api/contacts/import', { method: 'POST', body: formData });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error);
 
@@ -104,28 +125,19 @@ export function ContactImporter() {
 
       <Dialog open={step === 'mapFields' || step === 'importing'} onOpenChange={reset}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Mapear Colunas para Importação</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Mapear Colunas para Importação</DialogTitle></DialogHeader>
           <p>Associe as colunas do seu arquivo CSV aos campos correspondentes no sistema.</p>
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Coluna no seu Arquivo</TableHead>
-                <TableHead>Campo no Sistema</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader><TableRow><TableHead>Coluna no Arquivo</TableHead><TableHead>Campo no Sistema</TableHead></TableRow></TableHeader>
             <TableBody>
               {headers.map(header => (
                 <TableRow key={header}>
                   <TableCell className="font-medium">{header}</TableCell>
                   <TableCell>
                     <Select value={mapping[header] || 'ignore'} onValueChange={value => handleMappingChange(header, value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {systemFields.map(field => (
+                        {availableFields.map(field => (
                           <SelectItem key={field.value} value={field.value}>{field.label}</SelectItem>
                         ))}
                       </SelectContent>
