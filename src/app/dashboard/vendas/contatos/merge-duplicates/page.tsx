@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Loader2, Trash } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface DuplicateContactInfo {
   id: string;
@@ -17,6 +19,8 @@ interface DuplicateContactInfo {
 
 interface DuplicateReport {
   id: string; // email
+  type: 'email' | 'phone';
+  key: string;
   duplicateCount: number;
   contacts: DuplicateContactInfo[];
   primaryContactId: string;
@@ -24,8 +28,12 @@ interface DuplicateReport {
 
 export default function MergeDuplicatesPage() {
   const [reports, setReports] = useState<DuplicateReport[]>([]);
+  const [selectedReports, setSelectedReports] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [mergingId, setMergingId] = useState<string | null>(null);
+  const [isBulkMerging, setIsBulkMerging] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   const { toast } = useToast();
 
   const fetchReports = async () => {
@@ -46,13 +54,35 @@ export default function MergeDuplicatesPage() {
     fetchReports();
   }, []);
 
-  const handleMergeGroup = async (reportId: string) => {
-    setMergingId(reportId);
-    try {
-        const response = await fetch('/api/contacts/merge', {
+  const handleSelectAll = (checked: boolean | string) => {
+    if (checked) {
+      setSelectedReports(reports.map(r => r.id));
+    } else {
+      setSelectedReports([]);
+    }
+  };
+
+  const handleSelectOne = (checked: boolean | string, reportId: string) => {
+    if (checked) {
+      setSelectedReports(prev => [...prev, reportId]);
+    } else {
+      setSelectedReports(prev => prev.filter(id => id !== reportId));
+    }
+  };
+
+  const handleMerge = async (reportIds: string[], isBulk: boolean) => {
+      const stateSetter = isBulk ? setIsBulkMerging : setMergingId;
+      const endpoint = isBulk ? '/api/contacts/bulk-merge' : '/api/contacts/merge';
+      const body = isBulk ? { reportIds } : { reportId: reportIds[0] };
+      const idOrIds = isBulk ? reportIds : reportIds[0];
+
+      stateSetter(isBulk ? true : idOrIds);
+
+      try {
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reportId }),
+            body: JSON.stringify(body),
         });
 
         const result = await response.json();
@@ -62,15 +92,47 @@ export default function MergeDuplicatesPage() {
         
         toast({ title: "Sucesso!", description: result.message });
 
-        // Remove o card da tela
-        setReports(prev => prev.filter(r => r.id !== reportId));
+        setReports(prev => prev.filter(r => !reportIds.includes(r.id)));
+        setSelectedReports(prev => prev.filter(id => !reportIds.includes(id)));
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Erro na Mesclagem', description: error.message });
     } finally {
-        setMergingId(null);
+        stateSetter(isBulk ? false : null);
     }
-  };
+  }
+
+  const handleBulkDelete = async () => {
+        setIsBulkDeleting(true);
+        const contactIdsToDelete = reports
+            .filter(r => selectedReports.includes(r.id))
+            .flatMap(r => r.contacts.map(c => c.id));
+        
+        // Remove duplicates from the list of IDs
+        const uniqueContactIds = [...new Set(contactIdsToDelete)];
+        
+        try {
+            const response = await fetch('/api/contacts/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contactIds: uniqueContactIds }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'A exclusão falhou.');
+            
+            toast({ title: 'Sucesso!', description: `${result.count} contatos excluídos.`});
+            
+            // Remove the reports from view and clear selection
+            setReports(prev => prev.filter(r => !selectedReports.includes(r.id)));
+            setSelectedReports([]);
+
+        } catch (error: any) {
+             toast({ variant: 'destructive', title: 'Erro ao Excluir', description: error.message });
+        } finally {
+            setIsBulkDeleting(false);
+        }
+    }
+
 
   return (
     <div className="space-y-6">
@@ -80,8 +142,41 @@ export default function MergeDuplicatesPage() {
        </Link>
       <div>
         <h1 className="font-headline text-3xl font-bold tracking-tight">Mesclar Contatos Duplicados</h1>
-        <p className="text-muted-foreground">Revise os grupos de contatos com o mesmo e-mail e mescle-os para manter sua base limpa.</p>
+        <p className="text-muted-foreground">Revise os grupos de contatos com o mesmo e-mail ou telefone e mescle-os para manter sua base limpa.</p>
       </div>
+
+        {reports.length > 0 && !loading && (
+             <Card>
+                <CardHeader className="flex-row items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                        <Checkbox
+                            id="select-all"
+                            checked={selectedReports.length === reports.length}
+                            onCheckedChange={handleSelectAll}
+                        />
+                        <label htmlFor="select-all" className="text-sm font-medium">Selecionar Todos</label>
+                    </div>
+                    <div>
+                         <Button
+                            variant="destructive"
+                            onClick={handleBulkDelete}
+                            disabled={selectedReports.length === 0 || isBulkDeleting || isBulkMerging}
+                            className="mr-2"
+                         >
+                            {isBulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
+                            Excluir Contatos
+                        </Button>
+                        <Button
+                            onClick={() => handleMerge(selectedReports, true)}
+                            disabled={selectedReports.length === 0 || isBulkMerging || isBulkDeleting}
+                        >
+                            {isBulkMerging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Mesclar Selecionados ({selectedReports.length})
+                        </Button>
+                    </div>
+                </CardHeader>
+            </Card>
+        )}
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -92,14 +187,26 @@ export default function MergeDuplicatesPage() {
           {reports.map((report) => (
             <Card key={report.id} className="flex flex-col">
               <CardHeader>
-                <CardTitle className="truncate">{report.id}</CardTitle>
-                <CardDescription>{report.duplicateCount} contatos encontrados</CardDescription>
+                <div className="flex items-start gap-4">
+                    <Checkbox
+                        className="mt-1"
+                        checked={selectedReports.includes(report.id)}
+                        onCheckedChange={(checked) => handleSelectOne(checked, report.id)}
+                    />
+                    <div className="flex-grow">
+                        <CardTitle className="truncate text-base">{report.key}</CardTitle>
+                        <CardDescription>
+                            {report.duplicateCount} contatos encontrados por {report.type === 'email' ? 'e-mail' : 'telefone'}
+                        </CardDescription>
+                    </div>
+                </div>
               </CardHeader>
               <CardContent className="flex-grow">
                 <ul className="list-disc list-inside space-y-1 text-sm">
                   {report.contacts.map(contact => (
                     <li key={contact.id} className={contact.id === report.primaryContactId ? 'font-bold' : ''}>
-                      {contact.name} {contact.id === report.primaryContactId && '(Principal)'}
+                      {contact.name || 'Sem nome'} ({contact.email})
+                      {contact.id === report.primaryContactId && ' (Principal)'}
                     </li>
                   ))}
                 </ul>
@@ -107,8 +214,9 @@ export default function MergeDuplicatesPage() {
               <CardFooter>
                   <Button 
                     className="w-full"
-                    onClick={() => handleMergeGroup(report.id)}
-                    disabled={mergingId === report.id}
+                    variant="outline"
+                    onClick={() => handleMerge([report.id], false)}
+                    disabled={mergingId === report.id || isBulkMerging}
                   >
                     {mergingId === report.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {mergingId === report.id ? 'Mesclando...' : 'Mesclar este grupo'}
@@ -129,3 +237,4 @@ export default function MergeDuplicatesPage() {
     </div>
   );
 }
+
