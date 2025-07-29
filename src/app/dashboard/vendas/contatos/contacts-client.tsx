@@ -191,7 +191,7 @@ export function ContactsClient() {
         });
         const result = await response.json();
         if(!response.ok) throw new Error(result.error || 'Falha na exclusão em lote');
-        toast({ title: "Sucesso", description: `${selectedRowKeys.length} contato(s) excluído(s).` });
+        toast({ title: "Sucesso", description: `${result.count} contato(s) excluído(s).` });
         await refreshData();
         setIsBulkDeleteAlertOpen(false);
     } catch(error) {
