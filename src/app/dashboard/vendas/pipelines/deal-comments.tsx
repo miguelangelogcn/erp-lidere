@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Comment {
   id: string;
@@ -22,7 +22,8 @@ interface DealCommentsProps {
 export function DealComments({ dealId }: DealCommentsProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export function DealComments({ dealId }: DealCommentsProps) {
 
   const handleSubmitComment = async () => {
     if (!newComment.trim()) return;
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       const response = await fetch(`/api/deals/${dealId}/comments`, {
@@ -58,10 +59,9 @@ export function DealComments({ dealId }: DealCommentsProps) {
 
       const savedComment = await response.json();
       
-      // Convert server timestamp to a usable Date object on the client-side
       const displayComment = {
         ...savedComment,
-        createdAt: new Date() // Use current date for immediate display
+        createdAt: new Date() 
       };
 
       setComments([displayComment, ...comments]);
@@ -71,7 +71,7 @@ export function DealComments({ dealId }: DealCommentsProps) {
     } catch (error: any) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -82,26 +82,34 @@ export function DealComments({ dealId }: DealCommentsProps) {
           placeholder="Adicione uma nota sobre esta negociação..."
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          disabled={isLoading}
+          disabled={isSubmitting}
           rows={4}
         />
-        <Button onClick={handleSubmitComment} disabled={isLoading || !newComment.trim()}>
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+        <Button onClick={handleSubmitComment} disabled={isSubmitting || !newComment.trim()}>
+          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
           Adicionar Comentário
         </Button>
       </div>
 
        <ScrollArea className="h-64">
             <div className="space-y-4 pr-4">
-                {comments.map((comment) => (
-                    <div key={comment.id} className="text-sm p-3 bg-muted/50 rounded-md">
-                        <p className="whitespace-pre-wrap">{comment.text}</p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                           {comment.author} - {comment.createdAt ? new Date(comment.createdAt.seconds * 1000).toLocaleString('pt-BR') : 'Agora mesmo'}
-                        </p>
+                {isLoading ? (
+                    <div className="space-y-4">
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-20 w-full" />
                     </div>
-                ))}
-                {comments.length === 0 && !isLoading && <p className="text-sm text-center text-muted-foreground pt-4">Nenhuma nota adicionada.</p>}
+                ) : comments.length > 0 ? (
+                    comments.map((comment) => (
+                        <div key={comment.id} className="text-sm p-3 bg-muted/50 rounded-md">
+                            <p className="whitespace-pre-wrap">{comment.text}</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                               {comment.author || 'Usuário'} - {comment.createdAt ? new Date(comment.createdAt.seconds * 1000).toLocaleString('pt-BR') : 'Agora mesmo'}
+                            </p>
+                        </div>
+                    ))
+                ) : (
+                   <p className="text-sm text-center text-muted-foreground pt-4">Nenhuma nota adicionada.</p>
+                )}
             </div>
         </ScrollArea>
     </div>
