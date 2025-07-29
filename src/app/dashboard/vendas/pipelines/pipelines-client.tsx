@@ -38,6 +38,7 @@ import { ManagePipelinesModal } from "./manage-pipelines-modal";
 import { DealModal } from "./deal-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
+import Link from "next/link";
 
 export function PipelinesClient() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -249,7 +250,7 @@ export function PipelinesClient() {
                             <h3 className="text-xl font-semibold">{selectedDealDetails.title}</h3>
                              <p className="text-2xl font-bold text-primary">{formatCurrency(selectedDealDetails.value)}</p>
                             <div className="space-y-2 text-sm">
-                                <p><span className="font-semibold">Contato:</span> {selectedDealDetails.contactName}</p>
+                                <p><span className="font-semibold">Contato:</span> <Link href={`/dashboard/vendas/contatos?contactId=${selectedDealDetails.contactId}`} className="text-primary hover:underline">{selectedDealDetails.contactName}</Link></p>
                                 <p><span className="font-semibold">Responsável:</span> {selectedDealDetails.ownerName}</p>
                                 <p><span className="font-semibold">Pipeline:</span> {selectedPipeline?.name}</p>
                                 <p><span className="font-semibold">Estágio:</span> {selectedDealDetails.stage}</p>

@@ -1,4 +1,3 @@
-
 // src/lib/firebase/firestore.ts
 
 import { collection, getDocs, doc, updateDoc, getDoc, query, where, addDoc, serverTimestamp, deleteDoc, onSnapshot, writeBatch, Timestamp } from "firebase/firestore";
@@ -406,7 +405,7 @@ export interface Contact {
 export async function getContacts(): Promise<Contact[]> {
   const contactsCol = collection(db, "contacts");
   const querySnapshot = await getDocs(contactsCol);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), name: doc.data().name || 'N/A' } as Contact));
 }
 export async function getStudentsFromContacts(): Promise<Contact[]> {
     const q = query(collection(db, 'contacts'), where('userId', '!=', null));
@@ -538,7 +537,7 @@ export async function getAllDeals(): Promise<Deal[]> {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deal));
 }
 
-export async function addDeal(data: Omit<Deal, 'id'>) {
+export async function addDeal(data: Omit<Deal, 'id' | 'contactName' | 'ownerName'>) {
     await addDoc(collection(db, "deals"), data);
 }
 export async function updateDeal(id: string, data: Partial<Deal>) {
