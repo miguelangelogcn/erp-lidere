@@ -31,8 +31,6 @@ import {
   addDeal,
   updateDeal,
   deleteDeal,
-  addNote,
-  getNotes
 } from "@/lib/firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,6 +39,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandInput, CommandGroup, CommandList, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { DealComments } from "./deal-comments";
 
 
 const dealFormSchema = z.object({
@@ -53,11 +52,6 @@ const dealFormSchema = z.object({
 });
 
 type DealFormValues = z.infer<typeof dealFormSchema>;
-
-const noteFormSchema = z.object({
-    content: z.string().min(1, "O conteúdo da nota não pode estar vazio.")
-});
-type NoteFormValues = z.infer<typeof noteFormSchema>;
 
 interface DealModalProps {
   isOpen: boolean;
@@ -72,7 +66,6 @@ interface DealModalProps {
 export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employees, onDealUpdated }: DealModalProps) {
   const [loading, setLoading] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [notes, setNotes] = useState<Note[]>([]);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -86,11 +79,6 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
       contactId: "",
       ownerId: "",
     },
-  });
-
-  const noteForm = useForm<NoteFormValues>({
-      resolver: zodResolver(noteFormSchema),
-      defaultValues: { content: "" }
   });
 
   const selectedPipelineId = form.watch("pipelineId");
@@ -114,16 +102,6 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
     }
   }, [deal, pipelines, isOpen, user, form]);
 
-  useEffect(() => {
-    if (deal?.id) {
-      const unsubscribe = getNotes(deal.id, setNotes);
-      return () => unsubscribe();
-    } else {
-        setNotes([]);
-    }
-  }, [deal]);
-
-
   const onSubmit = async (values: DealFormValues) => {
     setLoading(true);
     try {
@@ -142,19 +120,6 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
       setLoading(false);
     }
   };
-
-  const onNoteSubmit = async (values: NoteFormValues) => {
-    if(!deal || !user?.email) return;
-    setLoading(true);
-    try {
-        await addNote(deal.id, { content: values.content, author: user.email });
-        noteForm.reset();
-    } catch (error) {
-        toast({ variant: "destructive", title: "Erro", description: "Não foi possível adicionar a nota." });
-    } finally {
-        setLoading(false);
-    }
-  }
 
   const onDeleteConfirm = async () => {
     if (!deal) return;
@@ -265,25 +230,7 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
           </TabsContent>
 
           <TabsContent value="notes">
-            <div className="space-y-4 pt-4">
-                <Form {...noteForm}>
-                    <form onSubmit={noteForm.handleSubmit(onNoteSubmit)} className="space-y-2">
-                         <FormField control={noteForm.control} name="content" render={({ field }) => (<FormItem><FormLabel>Nova Nota</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                         <Button type="submit" size="sm" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Adicionar Nota</Button>
-                    </form>
-                </Form>
-                <ScrollArea className="h-64">
-                    <div className="space-y-4 pr-4">
-                        {notes.map(note => (
-                            <div key={note.id} className="text-sm p-3 bg-muted/50 rounded-md">
-                                <p className="whitespace-pre-wrap">{note.content}</p>
-                                <p className="text-xs text-muted-foreground mt-2">{note.author} - {note.createdAt ? format(note.createdAt, 'dd/MM/yyyy HH:mm') : '...'}</p>
-                            </div>
-                        ))}
-                         {notes.length === 0 && <p className="text-sm text-center text-muted-foreground pt-4">Nenhuma nota adicionada.</p>}
-                    </div>
-                </ScrollArea>
-            </div>
+            {deal && <DealComments dealId={deal.id} />}
           </TabsContent>
         </Tabs>
         <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
@@ -296,5 +243,3 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
     </Dialog>
   );
 }
-
-    
