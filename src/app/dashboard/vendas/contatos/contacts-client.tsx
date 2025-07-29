@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -111,35 +110,37 @@ export function ContactsClient() {
       defaultValues: { tag: "" },
   });
   
-  const handleScanDuplicates = async () => {
-    setIsScanning(true);
-    toast({
-        title: "Iniciando a varredura...",
-        description: "A análise de contatos duplicados começou. Isso pode levar alguns minutos.",
-    });
-
-    try {
-        const functions = getFunctions(app); 
-        const triggerScan = httpsCallable(functions, 'triggerDuplicatesScan');
-        const result = await triggerScan();
-        
+    const handleScanDuplicates = async () => {
+        setIsScanning(true);
         toast({
-            title: "Varredura Concluída!",
-            description: "A base de dados foi analisada. O aviso de duplicatas será atualizado.",
+            title: "Iniciando a varredura...",
+            description: "A análise de contatos duplicados começou. Isso pode levar alguns minutos.",
         });
 
-        await refreshData();
+        try {
+            const functions = getFunctions(app); // Utiliza a instância 'app' aqui
+            const triggerScan = httpsCallable(functions, 'triggerDuplicatesScan');
+            await triggerScan();
+            
+            toast({
+                title: "Varredura Concluída!",
+                description: "A base de dados foi analisada. O aviso de duplicatas será atualizado em instantes.",
+            });
 
-    } catch (error: any) {
-        toast({
-            title: "Erro na varredura",
-            description: error.message || "Não foi possível iniciar a análise.",
-            variant: "destructive",
-        });
-    } finally {
-        setIsScanning(false);
-    }
-};
+            // Atualiza a página para que o aviso de duplicatas apareça se algo for encontrado
+            router.refresh();
+
+        } catch (error: any) {
+            console.error("Erro na varredura: ", error);
+            toast({
+                title: "Erro na varredura",
+                description: error.message || "Não foi possível iniciar a análise.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsScanning(false);
+        }
+    };
 
 
   const handleDialogOpen = (contact: Contact | null) => {
@@ -544,5 +545,3 @@ export function ContactsClient() {
     </>
   );
 }
-
-    
