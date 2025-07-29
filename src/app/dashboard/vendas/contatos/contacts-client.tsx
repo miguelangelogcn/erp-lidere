@@ -2,10 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, Edit, Trash, MoreHorizontal, Loader2, UserPlus } from "lucide-react";
+import { PlusCircle, Edit, Trash, MoreHorizontal, Loader2, UserPlus, AlertTriangle } from "lucide-react";
 
 import { Contact, addContact, updateContact, deleteContact, getContacts, createStudentFromContact } from "@/lib/firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
@@ -15,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +49,7 @@ type BulkTagFormValues = z.infer<typeof bulkTagFormSchema>;
 export function ContactsClient() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [duplicateCount, setDuplicateCount] = useState(0);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -66,12 +69,14 @@ export function ContactsClient() {
     try {
         if (!user) return;
         setPageLoading(true);
-        const [contactsData, fieldsData] = await Promise.all([
+        const [contactsData, fieldsData, duplicatesData] = await Promise.all([
             getContacts(),
-            fetch('/api/settings/contact-fields').then(res => res.json())
+            fetch('/api/settings/contact-fields').then(res => res.json()),
+            fetch('/api/contacts/duplicates-summary').then(res => res.json())
         ]);
         setContacts(contactsData);
         setCustomFields(fieldsData);
+        setDuplicateCount(duplicatesData.count || 0);
         setSelectedRowKeys([]);
     } catch (error) {
         console.error("Error fetching contacts:", error);
@@ -230,6 +235,20 @@ export function ContactsClient() {
 
   return (
     <>
+        {duplicateCount > 0 && (
+             <Alert className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Contatos Duplicados Encontrados</AlertTitle>
+                <AlertDescription>
+                    <div className="flex justify-between items-center">
+                        <p>Encontramos {duplicateCount} grupo(s) de contatos duplicados. Recomendamos revisar para manter sua base de dados limpa.</p>
+                        <Link href="/dashboard/vendas/contatos/merge-duplicates">
+                             <Button>Revisar e Mesclar</Button>
+                        </Link>
+                    </div>
+                </AlertDescription>
+            </Alert>
+        )}
         <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
                 <DropdownMenu>
