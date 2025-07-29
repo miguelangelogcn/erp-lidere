@@ -3,10 +3,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { PlusCircle, Edit, Trash, MoreHorizontal, Loader2, UserPlus, AlertTriangle } from "lucide-react";
+import { PlusCircle, Edit, Trash, MoreHorizontal, Loader2, UserPlus, AlertTriangle, ScanSearch } from "lucide-react";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { app } from "@/lib/firebase/client";
 
 import { Contact, addContact, updateContact, deleteContact, getContacts, createStudentFromContact } from "@/lib/firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
@@ -62,8 +65,11 @@ export function ContactsClient() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const router = useRouter();
+
 
   const refreshData = async () => {
     try {
@@ -104,6 +110,37 @@ export function ContactsClient() {
       resolver: zodResolver(bulkTagFormSchema),
       defaultValues: { tag: "" },
   });
+  
+  const handleScanDuplicates = async () => {
+    setIsScanning(true);
+    toast({
+        title: "Iniciando a varredura...",
+        description: "A análise de contatos duplicados começou. Isso pode levar alguns minutos.",
+    });
+
+    try {
+        const functions = getFunctions(app); 
+        const triggerScan = httpsCallable(functions, 'triggerDuplicatesScan');
+        const result = await triggerScan();
+        
+        toast({
+            title: "Varredura Concluída!",
+            description: "A base de dados foi analisada. O aviso de duplicatas será atualizado.",
+        });
+
+        await refreshData();
+
+    } catch (error: any) {
+        toast({
+            title: "Erro na varredura",
+            description: error.message || "Não foi possível iniciar a análise.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsScanning(false);
+    }
+};
+
 
   const handleDialogOpen = (contact: Contact | null) => {
     setSelectedContact(contact);
@@ -267,10 +304,16 @@ export function ContactsClient() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
-            <Button onClick={() => handleDialogOpen(null)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Adicionar Contato
-            </Button>
+             <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handleScanDuplicates} disabled={isScanning}>
+                  {isScanning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-2 h-4 w-4" />}
+                  {isScanning ? 'Analisando...' : 'Varrer Duplicatas'}
+                </Button>
+                <Button onClick={() => handleDialogOpen(null)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Adicionar Contato
+                </Button>
+            </div>
         </div>
 
       {/* Modals and Dialogs */}
@@ -501,3 +544,5 @@ export function ContactsClient() {
     </>
   );
 }
+
+    
