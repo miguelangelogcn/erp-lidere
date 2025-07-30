@@ -3,111 +3,82 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isEmployee() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId != 'student';
-    }
-
-    function isStudent() {
-       return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'student';
-    }
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Users can read their own data, employees can read all users
+    // Regras de Usuários e Cargos
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isEmployee());
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && (request.auth.uid == userId || isEmployee());
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Roles can be read by any employee, but only managed by them
     match /roles/{roleId} {
-      allow read, write: if isEmployee();
+      allow read, write: if request.auth != null;
     }
-    
-    match /contacts/{contactId} {
-      allow read, write: if isEmployee();
-    }
-    
-    match /companies/{companyId} {
-      allow read, write: if isEmployee();
-    }
-    
-    match /pipelines/{pipelineId} {
-      allow read, write: if isEmployee();
-    }
-    
-    match /deals/{dealId} {
-      allow list: if isEmployee();
-      allow get: if request.auth != null; // Allow any authenticated user to get a single deal
-      allow create, update, delete: if isEmployee();
-      
-       match /comments/{commentId} {
-        allow read, write: if request.auth != null;
-      }
-    }
-    
-    match /products/{productId} {
-        allow read, write: if isEmployee();
-    }
-    
-    match /onboardings/{onboardingId} {
-        allow read, write: if isEmployee();
-    }
-    
-    match /followUps/{followUpId} {
-        // Employees can see all, students only their own
-        allow read: if (isEmployee() || (isStudent() && resource.data.studentUserId == request.auth.uid));
-        allow create, update, delete: if isEmployee();
-        
-        match /mentorships/{mentorshipId} {
-             allow read: if (isEmployee() || (isStudent() && get(/databases/$(database)/documents/followUps/$(followUpId)).data.studentUserId == request.auth.uid));
-             allow create, update, delete: if isEmployee();
-        }
-        
-         match /actionPlanTasks/{taskId} {
-             allow read: if (isEmployee() || (isStudent() && get(/databases/$(database)/documents/followUps/$(followUpId)).data.studentUserId == request.auth.uid));
-             // Students can only update status to 'completed'
-             allow update: if (isEmployee() || (isStudent() && get(/databases/$(database)/documents/followUps/$(followUpId)).data.studentUserId == request.auth.uid));
-             allow create, delete: if isEmployee();
-        }
-    }
-
-    match /courses/{courseId} {
-      allow read: if request.auth != null; // Any authenticated user can read course info
-      
-      match /modules/{moduleId} {
-         allow read: if request.auth != null;
-         
-         match /lessons/{lessonId} {
-            allow read: if request.auth != null;
-         }
-      }
-    }
-
     match /progress/{userId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-     match /financialAccounts/{accountId} {
-        allow read, write: if isEmployee();
-    }
-    
-    match /financialDebts/{debtId} {
-        allow read, write: if isEmployee();
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /employeeCustomFields/{fieldId} {
-        allow read: if request.auth != null; // All users might need to see field definitions
-        allow write: if isEmployee();
+    // Regras de Vendas
+    match /contacts/{contactId} {
+      allow read, write: if request.auth != null;
+    }
+    match /companies/{companyId} {
+      allow read, write: if request.auth != null;
+    }
+    match /pipelines/{pipelineId} {
+      allow read, write: if request.auth != null;
+    }
+    match /deals/{dealId} {
+      allow read, write: if request.auth != null;
+    }
+    match /deals/{dealId}/comments/{commentId} {
+      allow read, write: if request.auth != null;
     }
     
+    // Regras de Operações e Conteúdo
+    match /products/{productId} {
+      allow read, write: if request.auth != null;
+    }
+    match /courses/{courseId} {
+      allow read, write: if request.auth != null;
+    }
+    match /courses/{courseId}/{subcollection}/{docId} {
+       allow read, write: if request.auth != null;
+    }
+    match /courses/{courseId}/{subcollection}/{docId}/{lessonsCollection}/{lessonId} {
+       allow read, write: if request.auth != null;
+    }
+    match /onboardings/{onboardingId} {
+      allow read, write: if request.auth != null;
+    }
+    match /followUps/{followUpId} {
+      allow read, write: if request.auth != null;
+    }
+    match /followUps/{followUpId}/{subcollection}/{docId} {
+       allow read, write: if request.auth != null;
+    }
+    
+    // Regras de Configurações
     match /contactCustomFields/{fieldId} {
-        allow read: if isEmployee();
-        allow write: if isEmployee();
+       allow read, write: if request.auth != null;
+    }
+    match /employeeCustomFields/{fieldId} {
+       allow read, write: if request.auth != null;
+    }
+
+    // Regras Financeiro
+     match /financialAccounts/{accountId} {
+      allow read, write: if request.auth != null;
+    }
+     match /financialDebts/{debtId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Regras de Marketing
+    match /campaigns/{campaignId} {
+        allow read, write: if request.auth != null;
+    }
+    match /dispatches/{dispatchId} {
+        allow read, write: if request.auth != null;
+    }
+    match /duplicatesReport/{reportId} {
+       allow read, write: if request.auth != null;
     }
   }
 }
