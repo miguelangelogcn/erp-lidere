@@ -1,11 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -16,10 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash, Check, ChevronsUpDown } from "lucide-react";
 import {
@@ -27,19 +23,15 @@ import {
   Pipeline,
   Contact,
   Employee,
-  Note,
   addDeal,
   updateDeal,
   deleteDeal,
 } from "@/lib/firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { formatCurrency } from "@/lib/utils";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandList, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { DealComments } from "./deal-comments";
 
 
 const dealFormSchema = z.object({
@@ -143,13 +135,6 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
         <DialogHeader>
           <DialogTitle>{deal ? "Editar Negociação" : "Nova Negociação"}</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="details">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="details">Detalhes</TabsTrigger>
-            <TabsTrigger value="notes" disabled={!deal}>Notas</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="details">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
                 <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Título</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
@@ -227,12 +212,6 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
                 </DialogFooter>
               </form>
             </Form>
-          </TabsContent>
-
-          <TabsContent value="notes">
-            {deal && <DealComments dealId={deal.id} />}
-          </TabsContent>
-        </Tabs>
         <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Essa ação não pode ser desfeita. Isso excluirá permanentemente a negociação.</AlertDialogDescription></AlertDialogHeader>

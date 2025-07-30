@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -39,6 +38,8 @@ import { DealModal } from "./deal-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
+import { Separator } from "@/components/ui/separator";
+import { DealComments } from "./deal-comments";
 
 export function PipelinesClient() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -95,7 +96,7 @@ export function PipelinesClient() {
         setContacts(contactsData);
         setEmployees(employeesData);
     } catch(e) {
-        toast({ variant: "destructive", title: "Erro", description: "Falha ao carregar dados iniciais." });
+        toast({ variant: "destructive", title: "Falha ao carregar dados iniciais." });
     } finally {
         setLoading(false);
     }
@@ -258,6 +259,8 @@ export function PipelinesClient() {
                             <Button className="w-full" onClick={() => openDealModal(selectedDealDetails)}>
                                 Editar Negociação
                             </Button>
+                            <Separator />
+                            <DealComments dealId={selectedDealDetails.id} />
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-48">
