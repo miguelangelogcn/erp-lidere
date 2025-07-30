@@ -488,6 +488,7 @@ export async function getPipelines(): Promise<Pipeline[]> {
   const querySnapshot = await getDocs(pipelinesCol);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pipeline));
 }
+
 export async function addPipeline(data: Omit<Pipeline, 'id'>) {
     await addDoc(collection(db, "pipelines"), data);
 }
