@@ -1,6 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
+import { useRouter } from "next/navigation";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { type Deal } from "@/lib/firebase/firestore";
@@ -10,11 +11,11 @@ import { cn } from "@/lib/utils";
 
 interface DealCardProps {
   deal: Deal;
-  onClick: () => void;
   isSelected: boolean;
 }
 
-export function DealCard({ deal, onClick, isSelected }: DealCardProps) {
+export function DealCard({ deal, isSelected }: DealCardProps) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: deal.id,
   });
@@ -23,10 +24,14 @@ export function DealCard({ deal, onClick, isSelected }: DealCardProps) {
     transform: CSS.Translate.toString(transform),
   };
 
+  const handleCardClick = () => {
+    router.push(`/dashboard/vendas/pipelines/${deal.id}`);
+  };
+
   return (
     <div ref={setNodeRef} style={style} >
       <Card 
-        onClick={onClick} 
+        onClick={handleCardClick} 
         className={cn(
           "cursor-pointer hover:shadow-md transition-shadow group",
           isSelected && "ring-2 ring-primary"

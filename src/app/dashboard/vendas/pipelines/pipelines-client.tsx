@@ -146,10 +146,6 @@ export function PipelinesClient() {
     refreshDeals();
   }
 
-  const handleCardClick = (dealId: string) => {
-    router.push(`/dashboard/vendas/pipelines/${dealId}`);
-  }
-
   return (
     <>
       <div className="flex-shrink-0 flex justify-between items-center mb-4">
@@ -203,7 +199,6 @@ export function PipelinesClient() {
                                 <DealCard 
                                     key={deal.id} 
                                     deal={deal} 
-                                    onClick={() => handleCardClick(deal.id)}
                                     isSelected={false} 
                                 />
                             ))}
