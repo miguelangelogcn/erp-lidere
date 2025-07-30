@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import {
   Card,
@@ -51,9 +52,8 @@ export function PipelinesClient() {
   const [isPipelinesModalOpen, setIsPipelinesModalOpen] = useState(false);
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [dealForModal, setDealForModal] = useState<Deal | null>(null);
-  const [selectedDealDetails, setSelectedDealDetails] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
-
+  const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -75,10 +75,6 @@ export function PipelinesClient() {
     try {
       const dealsData = await getDealsByPipeline(selectedPipelineId);
       setDeals(dealsData);
-      // Reset details view if the selected deal is not in the refreshed list
-      if (selectedDealDetails && !dealsData.find(d => d.id === selectedDealDetails.id)) {
-        setSelectedDealDetails(null);
-      }
     } catch (error) {
       console.error("Error fetching deals:", error);
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar as negociações." });
@@ -130,9 +126,6 @@ export function PipelinesClient() {
 
     // Optimistic update
     setDeals(deals.map(d => d.id === dealId ? { ...d, stage: newStage } : d));
-    if (selectedDealDetails?.id === dealId) {
-      setSelectedDealDetails(prev => prev ? { ...prev, stage: newStage } : null);
-    }
 
     try {
       await updateDeal(dealId, { stage: newStage });
@@ -151,19 +144,10 @@ export function PipelinesClient() {
   
   const onDealUpdated = () => {
     refreshDeals();
-    // also refresh details if the edited deal is the one being shown
-    if (dealForModal && selectedDealDetails && dealForModal.id === selectedDealDetails.id) {
-       const updatedDealData = deals.find(d => d.id === dealForModal.id);
-       if(updatedDealData) {
-         setSelectedDealDetails(updatedDealData);
-       } else { // if it was deleted
-         setSelectedDealDetails(null);
-       }
-    }
   }
 
-  const handleCardClick = (deal: Deal) => {
-    setSelectedDealDetails(deal);
+  const handleCardClick = (dealId: string) => {
+    router.push(`/dashboard/vendas/pipelines/${dealId}`);
   }
 
   return (
@@ -174,7 +158,6 @@ export function PipelinesClient() {
             value={selectedPipelineId ?? ""}
             onValueChange={(value) => {
               setSelectedPipelineId(value);
-              setSelectedDealDetails(null); // Deselect deal when changing pipeline
             }}
             disabled={loading}
           >
@@ -199,77 +182,40 @@ export function PipelinesClient() {
         <Button onClick={() => openDealModal(null)} disabled={!selectedPipelineId}>Adicionar Negociação</Button>
       </div>
       
-      <div className="flex-grow grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-hidden">
-        {/* Kanban Board Column */}
-        <div className="lg:col-span-2 xl:col-span-3 overflow-x-auto h-full">
-            <DndContext onDragEnd={onDragEnd}>
-                <div className="flex-grow flex gap-4 pb-4 h-full">
-                {loading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="flex-shrink-0 w-80 space-y-4">
-                            <Skeleton className="h-8 w-1/2" />
-                            <Skeleton className="h-24 w-full" />
-                            <Skeleton className="h-24 w-full" />
-                        </div>
-                    ))
-                ) : selectedPipeline ? (
-                    selectedPipeline.stages.map((stage) => {
-                        const dealsInStage = deals.filter((deal) => deal.stage === stage);
-                        const totalValue = dealsInStage.reduce((sum, deal) => sum + deal.value, 0);
-
-                        return (
-                            <KanbanColumn key={stage} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
-                                {dealsInStage.map((deal) => (
-                                    <DealCard 
-                                        key={deal.id} 
-                                        deal={deal} 
-                                        onClick={() => handleCardClick(deal)}
-                                        isSelected={deal.id === selectedDealDetails?.id} 
-                                    />
-                                ))}
-                            </KanbanColumn>
-                        );
-                    })
-                ) : (
-                    <div className="flex-grow flex items-center justify-center">
-                    <p className="text-muted-foreground">Selecione um pipeline para começar.</p>
+      <div className="flex-grow flex gap-4 overflow-x-auto pb-4">
+        <DndContext onDragEnd={onDragEnd}>
+            {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex-shrink-0 w-80 space-y-4">
+                        <Skeleton className="h-8 w-1/2" />
+                        <Skeleton className="h-24 w-full" />
+                        <Skeleton className="h-24 w-full" />
                     </div>
-                )}
+                ))
+            ) : selectedPipeline ? (
+                selectedPipeline.stages.map((stage) => {
+                    const dealsInStage = deals.filter((deal) => deal.stage === stage);
+                    const totalValue = dealsInStage.reduce((sum, deal) => sum + deal.value, 0);
+
+                    return (
+                        <KanbanColumn key={stage} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
+                            {dealsInStage.map((deal) => (
+                                <DealCard 
+                                    key={deal.id} 
+                                    deal={deal} 
+                                    onClick={() => handleCardClick(deal.id)}
+                                    isSelected={false} 
+                                />
+                            ))}
+                        </KanbanColumn>
+                    );
+                })
+            ) : (
+                <div className="flex-grow flex items-center justify-center">
+                <p className="text-muted-foreground">Selecione um pipeline para começar.</p>
                 </div>
-            </DndContext>
-        </div>
-        
-        {/* Details Column */}
-        <div className="lg:col-span-1 xl:col-span-1 h-full overflow-y-auto pr-2">
-            <Card className="h-full sticky top-0">
-                <CardHeader>
-                    <CardTitle>Detalhes da Negociação</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {selectedDealDetails ? (
-                         <div className="space-y-4">
-                            <h3 className="text-xl font-semibold">{selectedDealDetails.title}</h3>
-                             <p className="text-2xl font-bold text-primary">{formatCurrency(selectedDealDetails.value)}</p>
-                            <div className="space-y-2 text-sm">
-                                <p><span className="font-semibold">Contato:</span> <Link href={`/dashboard/vendas/contatos?contactId=${selectedDealDetails.contactId}`} className="text-primary hover:underline">{selectedDealDetails.contactName}</Link></p>
-                                <p><span className="font-semibold">Responsável:</span> {selectedDealDetails.ownerName}</p>
-                                <p><span className="font-semibold">Pipeline:</span> {selectedPipeline?.name}</p>
-                                <p><span className="font-semibold">Estágio:</span> {selectedDealDetails.stage}</p>
-                            </div>
-                            <Button className="w-full" onClick={() => openDealModal(selectedDealDetails)}>
-                                Editar Negociação
-                            </Button>
-                            <Separator />
-                            <DealComments dealId={selectedDealDetails.id} />
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-48">
-                            <p className="text-muted-foreground">Selecione uma negociação para ver os detalhes.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
+            )}
+        </DndContext>
       </div>
 
 

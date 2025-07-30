@@ -28,13 +28,13 @@ export function DealCard({ deal, onClick, isSelected }: DealCardProps) {
       <Card 
         onClick={onClick} 
         className={cn(
-          "cursor-pointer hover:shadow-md transition-shadow group border-0",
-          isSelected && "bg-primary/10"
+          "cursor-pointer hover:shadow-md transition-shadow group",
+          isSelected && "ring-2 ring-primary"
         )}
       >
         <CardHeader className="flex flex-row items-center justify-between p-4">
-          <CardTitle className="text-base font-medium">{deal.title}</CardTitle>
-          <div {...listeners} {...attributes} className="cursor-grab p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <CardTitle className="text-base font-medium flex-grow">{deal.title}</CardTitle>
+          <div {...listeners} {...attributes} className="cursor-grab p-1 opacity-50 group-hover:opacity-100">
              <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
         </CardHeader>
