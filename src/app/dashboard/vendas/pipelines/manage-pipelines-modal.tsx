@@ -46,7 +46,7 @@ type PipelineFormValues = z.infer<typeof pipelineFormSchema>;
 interface ManagePipelinesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPipelinesUpdated: () => void;
+  onPipelinesUpdated: (pipelines: Pipeline[]) => void;
 }
 
 export function ManagePipelinesModal({ isOpen, onClose, onPipelinesUpdated }: ManagePipelinesModalProps) {
@@ -73,6 +73,7 @@ export function ManagePipelinesModal({ isOpen, onClose, onPipelinesUpdated }: Ma
     setLoading(true);
     const data = await getPipelines();
     setPipelines(data);
+    onPipelinesUpdated(data);
     setLoading(false);
   };
 
@@ -112,7 +113,6 @@ export function ManagePipelinesModal({ isOpen, onClose, onPipelinesUpdated }: Ma
         toast({ title: "Sucesso", description: "Pipeline criado." });
       }
       await refreshPipelines();
-      onPipelinesUpdated();
       handleSelectPipeline(null);
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: "Ocorreu um erro." });
@@ -128,7 +128,6 @@ export function ManagePipelinesModal({ isOpen, onClose, onPipelinesUpdated }: Ma
       await deletePipeline(selectedPipeline.id);
       toast({ title: "Sucesso", description: "Pipeline excluído." });
       await refreshPipelines();
-      onPipelinesUpdated();
       handleSelectPipeline(null);
       setIsDeleteAlertOpen(false);
     } catch (error) {

@@ -24,7 +24,6 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Pipeline,
   Deal,
-  getPipelines,
   getDealsByPipeline,
   updateDeal,
   Contact,
@@ -42,13 +41,18 @@ import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
 import { DealComments } from "./deal-comments";
 
-export function PipelinesClient() {
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+interface PipelinesClientProps {
+    initialPipelines: Pipeline[];
+}
+
+
+export function PipelinesClient({ initialPipelines }: PipelinesClientProps) {
+  const [pipelines, setPipelines] = useState<Pipeline[]>(initialPipelines);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(initialPipelines[0]?.id || null);
   const [isPipelinesModalOpen, setIsPipelinesModalOpen] = useState(false);
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [dealForModal, setDealForModal] = useState<Deal | null>(null);
@@ -57,18 +61,11 @@ export function PipelinesClient() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const refreshPipelines = async () => {
-    if (!user) return;
-    const pipelinesData = await getPipelines();
-    setPipelines(pipelinesData);
-    if (pipelinesData.length > 0 && !selectedPipelineId) {
-      setSelectedPipelineId(pipelinesData[0].id);
-    }
-  };
 
   const refreshDeals = async () => {
     if (!user || !selectedPipelineId) {
       setDeals([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -83,23 +80,19 @@ export function PipelinesClient() {
     }
   };
   
-  const loadInitialData = async () => {
+  const loadOtherData = async () => {
     if(!user) return;
     try {
-        setLoading(true);
-        await refreshPipelines();
         const [contactsData, employeesData] = await Promise.all([getContacts(), getEmployees()]);
         setContacts(contactsData);
         setEmployees(employeesData);
     } catch(e) {
-        toast({ variant: "destructive", title: "Falha ao carregar dados iniciais." });
-    } finally {
-        setLoading(false);
+        toast({ variant: "destructive", title: "Falha ao carregar dados de suporte." });
     }
   }
 
   useEffect(() => {
-    loadInitialData();
+    loadOtherData();
   }, [user]);
 
   useEffect(() => {
@@ -144,6 +137,13 @@ export function PipelinesClient() {
   
   const onDealUpdated = () => {
     refreshDeals();
+  }
+  
+  const handlePipelinesUpdated = (updatedPipelines: Pipeline[]) => {
+      setPipelines(updatedPipelines);
+      if (!selectedPipelineId || !updatedPipelines.some(p => p.id === selectedPipelineId)) {
+          setSelectedPipelineId(updatedPipelines[0]?.id || null);
+      }
   }
 
   return (
@@ -207,7 +207,7 @@ export function PipelinesClient() {
                 })
             ) : (
                 <div className="flex-grow flex items-center justify-center">
-                <p className="text-muted-foreground">Selecione um pipeline para começar.</p>
+                <p className="text-muted-foreground">Crie ou selecione um pipeline para começar.</p>
                 </div>
             )}
         </DndContext>
@@ -217,7 +217,7 @@ export function PipelinesClient() {
       <ManagePipelinesModal
         isOpen={isPipelinesModalOpen}
         onClose={() => setIsPipelinesModalOpen(false)}
-        onPipelinesUpdated={refreshPipelines}
+        onPipelinesUpdated={handlePipelinesUpdated}
       />
       {isDealModalOpen && (
          <DealModal
