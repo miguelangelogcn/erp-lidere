@@ -512,6 +512,31 @@ export interface Deal {
     contactName?: string;
     ownerName?: string;
 }
+
+export async function getDealById(id: string): Promise<Deal | null> {
+    const dealRef = doc(db, 'deals', id);
+    const dealSnap = await getDoc(dealRef);
+
+    if (!dealSnap.exists()) {
+        return null;
+    }
+
+    const dealData = dealSnap.data() as Deal;
+
+    // For performance, fetch all contacts and employees once if needed, or fetch individually
+    const [contactDoc, ownerDoc] = await Promise.all([
+        getDoc(doc(db, 'contacts', dealData.contactId)),
+        getDoc(doc(db, 'users', dealData.ownerId))
+    ]);
+
+    return {
+        id: dealSnap.id,
+        ...dealData,
+        contactName: contactDoc.exists() ? contactDoc.data()?.name : 'N/A',
+        ownerName: ownerDoc.exists() ? ownerDoc.data()?.name : 'N/A',
+    };
+}
+
 export async function getDealsByPipeline(pipelineId: string): Promise<Deal[]> {
     const dealsQuery = query(collection(db, 'deals'), where('pipelineId', '==', pipelineId));
     const querySnapshot = await getDocs(dealsQuery);
