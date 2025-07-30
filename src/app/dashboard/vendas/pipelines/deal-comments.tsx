@@ -100,7 +100,9 @@ export function DealComments({ dealId }: DealCommentsProps) {
               <p className="text-gray-800 whitespace-pre-wrap">{comment.text}</p>
               {comment.createdAt && (
                 <p className="text-xs text-gray-500 mt-2">
-                  {new Date(comment.createdAt.toDate()).toLocaleString()}
+                  {typeof comment.createdAt.toDate === 'function' 
+                    ? new Date(comment.createdAt.toDate()).toLocaleString()
+                    : 'Enviando...'}
                 </p>
               )}
             </div>
