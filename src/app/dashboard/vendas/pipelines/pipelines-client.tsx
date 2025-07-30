@@ -1,235 +1,96 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { DndContext, type DragEndEvent } from "@dnd-kit/core";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardFooter,
-  CardDescription
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import {
-  Pipeline,
-  Deal,
-  getDealsByPipeline,
-  updateDeal,
-  Contact,
-  Employee,
-  getContacts,
-  getEmployees,
-} from "@/lib/firebase/firestore";
-import { KanbanColumn } from "./kanban-column";
-import { DealCard } from "./deal-card";
-import { ManagePipelinesModal } from "./manage-pipelines-modal";
-import { DealModal } from "./deal-modal";
-import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrency } from "@/lib/utils";
-import Link from "next/link";
-import { Separator } from "@/components/ui/separator";
-import { DealComments } from "./deal-comments";
+import { useState } from 'react';
+import { DndContext, type DragEndEvent } from '@dnd-kit/core';
+import { KanbanColumn } from './kanban-column';
+import { DealCard } from './deal-card';
+import { Deal, Pipeline, updateDeal } from '@/lib/firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { formatCurrency } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 interface PipelinesClientProps {
-    initialPipelines: Pipeline[];
+  initialPipelines: Pipeline[];
 }
 
-
 export function PipelinesClient({ initialPipelines }: PipelinesClientProps) {
-  const [pipelines, setPipelines] = useState<Pipeline[]>(initialPipelines);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(initialPipelines[0]?.id || null);
-  const [isPipelinesModalOpen, setIsPipelinesModalOpen] = useState(false);
-  const [isDealModalOpen, setIsDealModalOpen] = useState(false);
-  const [dealForModal, setDealForModal] = useState<Deal | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const [pipelines, setPipelines] = useState(initialPipelines);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const router = useRouter();
 
+  const allDeals = pipelines.flatMap(p => p.deals || []);
 
-  const refreshDeals = async () => {
-    if (!user || !selectedPipelineId) {
-      setDeals([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const dealsData = await getDealsByPipeline(selectedPipelineId);
-      setDeals(dealsData);
-    } catch (error) {
-      console.error("Error fetching deals:", error);
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível carregar as negociações." });
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const loadOtherData = async () => {
-    if(!user) return;
-    try {
-        const [contactsData, employeesData] = await Promise.all([getContacts(), getEmployees()]);
-        setContacts(contactsData);
-        setEmployees(employeesData);
-    } catch(e) {
-        toast({ variant: "destructive", title: "Falha ao carregar dados de suporte." });
-    }
-  }
-
-  useEffect(() => {
-    loadOtherData();
-  }, [user]);
-
-  useEffect(() => {
-    refreshDeals();
-  }, [selectedPipelineId, user]);
-
-  const selectedPipeline = useMemo(() => {
-    return pipelines.find((p) => p.id === selectedPipelineId);
-  }, [pipelines, selectedPipelineId]);
-
-  const onDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) {
-      return;
-    }
 
-    const dealId = active.id as string;
-    const newStage = over.id as string;
+    if (over && active.id !== over.id) {
+      const activeDeal = allDeals.find(d => d.id === active.id);
+      const newStage = over.id as string;
 
-    const originalDeals = [...deals];
-    const dealToUpdate = deals.find(d => d.id === dealId);
+      if (activeDeal && activeDeal.stage !== newStage) {
+        const originalPipelines = JSON.parse(JSON.stringify(pipelines));
 
-    if (!dealToUpdate) return;
+        // Optimistic UI update
+        const updatedPipelines = pipelines.map(p => {
+            // Remove deal from old pipeline/stage
+            const deals = p.deals?.filter(d => d.id !== active.id) || [];
+            
+            // Add deal to new pipeline/stage
+            if (p.stages.includes(newStage)) {
+                const dealToAdd = allDeals.find(d => d.id === active.id);
+                if (dealToAdd) {
+                   deals.push({ ...dealToAdd, stage: newStage });
+                }
+            }
+            return { ...p, deals };
+        });
 
-    // Optimistic update
-    setDeals(deals.map(d => d.id === dealId ? { ...d, stage: newStage } : d));
+        // This logic is a bit complex for client-side only, let's simplify
+        // Find the deal, update its stage, and move it.
+        const dealToMove = allDeals.find(d => d.id === active.id);
+        if(!dealToMove) return;
 
-    try {
-      await updateDeal(dealId, { stage: newStage });
-      toast({ title: "Sucesso", description: "Negociação movida." });
-    } catch (error) {
-      // Revert on error
-      setDeals(originalDeals);
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível mover a negociação." });
-    }
-  };
+        const newPipelinesState = pipelines.map(p => ({
+            ...p,
+            deals: p.deals?.filter(d => d.id !== active.id)
+        }));
+        
+        const targetPipeline = newPipelinesState.find(p => p.stages.includes(newStage));
+        if(targetPipeline) {
+            targetPipeline.deals?.push({...dealToMove, stage: newStage});
+        }
+        
+        setPipelines(newPipelinesState);
 
-  const openDealModal = (deal: Deal | null) => {
-    setDealForModal(deal);
-    setIsDealModalOpen(true);
-  };
-  
-  const onDealUpdated = () => {
-    refreshDeals();
-  }
-  
-  const handlePipelinesUpdated = (updatedPipelines: Pipeline[]) => {
-      setPipelines(updatedPipelines);
-      if (!selectedPipelineId || !updatedPipelines.some(p => p.id === selectedPipelineId)) {
-          setSelectedPipelineId(updatedPipelines[0]?.id || null);
+
+        try {
+          await updateDeal(active.id as string, { stage: newStage });
+          toast({ title: 'Sucesso!', description: 'Negociação movida para o novo estágio.' });
+        } catch (error) {
+          setPipelines(originalPipelines);
+          toast({ variant: 'destructive', title: 'Erro!', description: 'Não foi possível mover a negociação.' });
+        }
       }
-  }
-
+    }
+  };
+  
   return (
-    <>
-      <div className="flex-shrink-0 flex justify-between items-center mb-4">
-        <div className="flex items-center gap-4">
-          <Select
-            value={selectedPipelineId ?? ""}
-            onValueChange={(value) => {
-              setSelectedPipelineId(value);
-            }}
-            disabled={loading}
-          >
-            <SelectTrigger className="w-[280px]">
-              <SelectValue placeholder="Selecione um pipeline" />
-            </SelectTrigger>
-            <SelectContent>
-              {pipelines.map((pipeline) => (
-                <SelectItem key={pipeline.id} value={pipeline.id}>
-                  {pipeline.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            onClick={() => setIsPipelinesModalOpen(true)}
-          >
-            Gerenciar Pipelines
-          </Button>
-        </div>
-        <Button onClick={() => openDealModal(null)} disabled={!selectedPipelineId}>Adicionar Negociação</Button>
-      </div>
-      
+    <DndContext onDragEnd={handleDragEnd}>
       <div className="flex-grow flex gap-4 overflow-x-auto pb-4">
-        <DndContext onDragEnd={onDragEnd}>
-            {loading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex-shrink-0 w-80 space-y-4">
-                        <Skeleton className="h-8 w-1/2" />
-                        <Skeleton className="h-24 w-full" />
-                        <Skeleton className="h-24 w-full" />
-                    </div>
-                ))
-            ) : selectedPipeline ? (
-                selectedPipeline.stages.map((stage) => {
-                    const dealsInStage = deals.filter((deal) => deal.stage === stage);
-                    const totalValue = dealsInStage.reduce((sum, deal) => sum + deal.value, 0);
-
-                    return (
-                        <KanbanColumn key={stage} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
-                            {dealsInStage.map((deal) => (
-                                <DealCard 
-                                    key={deal.id} 
-                                    deal={deal} 
-                                    isSelected={false} 
-                                />
-                            ))}
-                        </KanbanColumn>
-                    );
-                })
-            ) : (
-                <div className="flex-grow flex items-center justify-center">
-                <p className="text-muted-foreground">Crie ou selecione um pipeline para começar.</p>
-                </div>
-            )}
-        </DndContext>
+        {pipelines.map(pipeline => (
+          pipeline.stages.map(stage => {
+            const dealsInStage = allDeals.filter(deal => deal.pipelineId === pipeline.id && deal.stage === stage);
+            const totalValue = dealsInStage.reduce((sum, deal) => sum + deal.value, 0);
+            return (
+              <KanbanColumn key={`${pipeline.id}-${stage}`} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
+                {dealsInStage.map(deal => (
+                  <DealCard key={deal.id} deal={deal} isSelected={false}/>
+                ))}
+              </KanbanColumn>
+            );
+          })
+        ))}
       </div>
-
-
-      <ManagePipelinesModal
-        isOpen={isPipelinesModalOpen}
-        onClose={() => setIsPipelinesModalOpen(false)}
-        onPipelinesUpdated={handlePipelinesUpdated}
-      />
-      {isDealModalOpen && (
-         <DealModal
-            isOpen={isDealModalOpen}
-            onClose={() => setIsDealModalOpen(false)}
-            deal={dealForModal}
-            pipelines={pipelines}
-            contacts={contacts}
-            employees={employees}
-            onDealUpdated={onDealUpdated}
-        />
-      )}
-    </>
+    </DndContext>
   );
 }
