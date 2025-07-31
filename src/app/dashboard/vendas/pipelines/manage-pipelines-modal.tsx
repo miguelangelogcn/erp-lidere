@@ -28,12 +28,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PlusCircle, Trash, Edit, X } from "lucide-react";
 import {
-  Pipeline,
+  Pipeline
+} from "@/lib/firebase/firestore-types";
+import {
   getPipelines,
   addPipeline,
   updatePipeline,
   deletePipeline,
-} from "@/lib/firebase/firestore";
+} from "@/lib/firebase/firestore-client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const pipelineFormSchema = z.object({

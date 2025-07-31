@@ -23,10 +23,12 @@ import {
   Pipeline,
   Contact,
   Employee,
+} from "@/lib/firebase/firestore-types";
+import {
   addDeal,
   updateDeal,
   deleteDeal,
-} from "@/lib/firebase/firestore";
+} from "@/lib/firebase/firestore-client";
 import { useAuth } from "@/hooks/use-auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -207,6 +209,7 @@ export function DealModal({ isOpen, onClose, deal, pipelines, contacts, employee
                     {deal && (
                         <Button type="button" variant="destructive" onClick={() => setIsDeleteAlertOpen(true)} disabled={loading} className="mr-auto"><Trash className="mr-2 h-4 w-4" /> Excluir</Button>
                     )}
+                    <div className="flex-grow"></div>
                     <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                     <Button type="submit" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button>
                 </DialogFooter>

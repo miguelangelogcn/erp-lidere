@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { KanbanColumn } from './kanban-column';
 import { DealCard } from './deal-card';
@@ -12,33 +12,45 @@ import { updateDeal } from '@/lib/firebase/firestore-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import type { Pipeline, Deal, Contact, Employee } from './firestore-types';
+import { getContacts, getEmployees } from '@/lib/firebase/firestore-client';
+import { getPipelinesWithDeals } from '@/lib/firebase/firestore';
 
 
 interface PipelinesClientProps {
   initialPipelines: Pipeline[];
-  initialDeals: Deal[];
-  contacts: Contact[];
-  employees: Employee[];
 }
 
-export function PipelinesClient({ initialPipelines, initialDeals, contacts, employees }: PipelinesClientProps) {
+export function PipelinesClient({ initialPipelines }: PipelinesClientProps) {
   const [pipelines, setPipelines] = useState<Pipeline[]>(initialPipelines);
-  const [deals, setDeals] = useState<Deal[]>(initialDeals);
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
+  const [deals, setDeals] = useState<Deal[]>(initialPipelines.flatMap(p => p.deals || []));
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
 
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [isPipelinesModalOpen, setIsPipelinesModalOpen] = useState(false);
 
   const { toast } = useToast();
 
+  useEffect(() => {
+    const fetchData = async () => {
+        const [contactsData, employeesData] = await Promise.all([getContacts(), getEmployees()]);
+        setContacts(contactsData);
+        setEmployees(employeesData);
+    };
+    fetchData();
+  }, [])
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
       const activeDealId = active.id as string;
-      const newStage = over.id as string;
       
+      const newStage = over.id as string;
       const dealToMove = deals.find(d => d.id === activeDealId);
+      
       if (dealToMove && dealToMove.stage !== newStage) {
         
         const originalDeals = [...deals];
@@ -59,23 +71,21 @@ export function PipelinesClient({ initialPipelines, initialDeals, contacts, empl
     }
   };
 
-  const handleOpenDealModal = (deal: Deal | null) => {
-    setSelectedDeal(deal);
+  const handleOpenDealModal = (dealId: string | null) => {
+    setSelectedDealId(dealId);
     setIsDealModalOpen(true);
   }
 
-  const onPipelinesUpdated = (updatedPipelines: Pipeline[]) => {
-    setPipelines(updatedPipelines);
+  const onPipelinesUpdated = async (updatedPipelines: Pipeline[]) => {
+    const pipelinesWithDeals = await getPipelinesWithDeals();
+    setPipelines(pipelinesWithDeals);
+    setDeals(pipelinesWithDeals.flatMap(p => p.deals || []));
   }
 
   const onDealUpdated = async () => {
-    // This is not optimal, but it's a simple way to refresh deals
-    const pipelinesWithDeals = await Promise.all(pipelines.map(async p => {
-        const dealsQuery = await fetch(`/api/deals/by-pipeline/${p.id}`).then(res => res.json());
-        return {...p, deals: dealsQuery};
-    }));
-     const allDeals = pipelinesWithDeals.flatMap(p => p.deals || []);
-     setDeals(allDeals);
+    const pipelinesWithDeals = await getPipelinesWithDeals();
+    setPipelines(pipelinesWithDeals);
+    setDeals(pipelinesWithDeals.flatMap(p => p.deals || []));
   };
   
   return (
@@ -94,7 +104,7 @@ export function PipelinesClient({ initialPipelines, initialDeals, contacts, empl
         </div>
     </div>
     <DndContext onDragEnd={handleDragEnd}>
-      <div className="flex-grow flex gap-4 overflow-x-auto pb-4">
+      <div className="flex-grow flex gap-4 overflow-x-auto pb-4 h-full">
         {pipelines.map(pipeline => (
           pipeline.stages.map(stage => {
             const dealsInStage = deals.filter(deal => deal.pipelineId === pipeline.id && deal.stage === stage);
@@ -102,7 +112,7 @@ export function PipelinesClient({ initialPipelines, initialDeals, contacts, empl
             return (
               <KanbanColumn key={`${pipeline.id}-${stage}`} id={stage} title={`${stage} (${formatCurrency(totalValue)})`}>
                 {dealsInStage.map(deal => (
-                  <DealCard key={deal.id} deal={deal} isSelected={false}/>
+                  <DealCard key={deal.id} deal={deal} isSelected={selectedDealId === deal.id}/>
                 ))}
               </KanbanColumn>
             );
@@ -115,7 +125,7 @@ export function PipelinesClient({ initialPipelines, initialDeals, contacts, empl
         <DealModal 
             isOpen={isDealModalOpen}
             onClose={() => setIsDealModalOpen(false)}
-            deal={selectedDeal}
+            deal={deals.find(d => d.id === selectedDealId) || null}
             pipelines={pipelines}
             contacts={contacts}
             employees={employees}

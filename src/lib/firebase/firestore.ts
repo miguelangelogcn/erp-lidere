@@ -1,5 +1,5 @@
 // Este arquivo agora contém apenas funções que rodam no servidor e usam o Admin SDK.
-import { adminDb } from './admin'; // Usa a nova configuração de admin
+import { adminDb } from './server'; // Usa a nova configuração de admin
 import { Pipeline, Deal } from './firestore-types';
 
 /**
