@@ -14,11 +14,6 @@ if (!getApps().length) {
 
       const serviceAccount: ServiceAccount = JSON.parse(serviceAccountKey);
 
-      // Corrige o formato da chave privada, substituindo '\\n' por '\n'
-      if (serviceAccount.private_key) {
-        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-      }
-
       app = initializeApp({ credential: cert(serviceAccount) });
 
     } catch (error: any) {

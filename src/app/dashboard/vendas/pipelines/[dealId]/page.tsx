@@ -1,5 +1,5 @@
-import { getDealById } from '@/lib/firebase/firestore'; // Supondo que esta função exista
-import { DealDetailsClient } from './deal-details-client'; // Criaremos este componente a seguir
+import { getDealById } from '@/lib/firebase/firestore'; 
+import { DealDetailsClient } from './deal-details-client'; 
 import { notFound } from 'next/navigation';
 
 export default async function DealDetailsPage({ params }: { params: { dealId: string } }) {

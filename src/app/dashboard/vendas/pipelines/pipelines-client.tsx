@@ -11,7 +11,7 @@ import { ManagePipelinesModal } from './manage-pipelines-modal';
 import { updateDeal } from '@/lib/firebase/firestore-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
-import type { Pipeline, Deal, Contact, Employee } from './firestore-types';
+import type { Pipeline, Deal, Contact, Employee } from '@/lib/firebase/firestore-types';
 import { getContacts, getEmployees } from '@/lib/firebase/firestore-client';
 import { getPipelinesWithDeals } from '@/lib/firebase/firestore';
 

@@ -4,12 +4,13 @@ import { adminDb } from '@/lib/firebase/server';
 // Interface para o relatório enriquecido que será retornado
 interface EnrichedDuplicateReport {
   id: string;
-  email: string;
+  type: 'email' | 'phone';
+  key: string;
   duplicateCount: number;
   status: string;
   createdAt: any;
   contacts: { id: string; name: string; email: string; }[];
-  primaryContactId: string;
+  primaryContactId: string | null;
 }
 
 export async function GET() {
@@ -32,25 +33,38 @@ export async function GET() {
         // Busca os documentos dos contatos em lote
         const contactRefs = contactIds.map((id: string) => adminDb.collection('contacts').doc(id));
         const contactDocs = await adminDb.getAll(...contactRefs);
+        
+        let primaryContactId = null;
+        let mostRecentDate = 0;
 
-        const contactsData = contactDocs.map(doc => {
-            if (!doc.exists) return null;
-            const data = doc.data();
-            return {
-                id: doc.id,
-                name: data?.name || 'N/A',
-                email: data?.email || 'N/A'
-            };
-        }).filter(Boolean) as { id: string; name: string; email: string; }[];
+        const contactsData = contactDocs
+          .map(doc => {
+              if (!doc.exists) return null;
+              const data = doc.data();
+              const createdAt = data?.createdAt?.toMillis() || 0;
+
+              if (createdAt > mostRecentDate) {
+                  mostRecentDate = createdAt;
+                  primaryContactId = doc.id;
+              }
+
+              return {
+                  id: doc.id,
+                  name: data?.name || 'N/A',
+                  email: data?.email || 'N/A'
+              };
+          })
+          .filter(Boolean) as { id: string; name: string; email: string; }[];
 
         enrichedReports.push({
           id: report.id,
-          email: report.email,
+          type: report.type,
+          key: report.key,
           duplicateCount: report.duplicateCount,
           status: report.status,
           createdAt: report.createdAt,
           contacts: contactsData,
-          primaryContactId: report.primaryContactId,
+          primaryContactId: primaryContactId,
         });
       }
     }

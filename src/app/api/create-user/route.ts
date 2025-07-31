@@ -1,5 +1,3 @@
-
-
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/server";
 import { z } from "zod";
