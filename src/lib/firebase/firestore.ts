@@ -51,12 +51,29 @@ export async function getPipelinesWithDeals(): Promise<Pipeline[]> {
   const pipelinesSnapshot = await pipelinesCollection.orderBy('order').get();
   const pipelines = pipelinesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Pipeline));
 
-  for (const pipeline of pipelines) {
-    const dealsCollection = adminDb.collection('deals');
-    const dealsQuery = dealsCollection.where('pipelineId', '==', pipeline.id).orderBy('order');
-    const dealsSnapshot = await dealsQuery.get();
-    pipeline.deals = dealsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deal));
+  const allDealsSnapshot = await adminDb.collection('deals').get();
+  const allDeals = allDealsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Deal));
+
+  // Fetch all contacts and users once to avoid multiple reads in a loop
+  const allContactsSnapshot = await adminDb.collection('contacts').get();
+  const contactsMap = new Map(allContactsSnapshot.docs.map(doc => [doc.id, doc.data().name]));
+
+  const allUsersSnapshot = await adminDb.collection('users').get();
+  const usersMap = new Map(allUsersSnapshot.docs.map(doc => [doc.id, doc.data().name]));
+
+  // Populate contact and owner names
+  for (const deal of allDeals) {
+      deal.contactName = contactsMap.get(deal.contactId) || 'N/A';
+      deal.ownerName = usersMap.get(deal.ownerId) || 'N/A';
   }
+
+  // Assign deals to their respective pipelines
+  for (const pipeline of pipelines) {
+      pipeline.deals = allDeals
+          .filter(deal => deal.pipelineId === pipeline.id)
+          .sort((a, b) => a.order - b.order);
+  }
+
 
   return pipelines;
 }
@@ -646,5 +663,3 @@ export function getCampaignDispatches(campaignId: string, callback: (dispatches:
         callback(dispatches);
     });
 }
-
-    
